@@ -1,0 +1,8 @@
+# made by the build – never needed in the repo
+node_modules/
+out/
+voice/*/
+# your own recordings and effects stay on your machine
+voice/*.mp3
+voice/*.wav
+sfx/
