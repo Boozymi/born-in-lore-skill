@@ -1,0 +1,510 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – chapter IX "The Heel" + ending + end card</title>
+<style>html, body { margin: 0; padding: 0; background: #000; overflow: hidden; } #stage { width: 1920px; height: 1080px; } svg { display: block; }</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/cast2.js"></script>
+<script src="../lib/props.js"></script>
+<script src="../lib/scene.js"></script>
+<script src="../lib/sets.js"></script>
+<script src="../lib/runner.js"></script>
+<script>
+// Chapter IX "The Heel" (EPISODE.md, row 11): the last fights, the arrow, the heel, the jar, the land of the dead,
+// the ending formula and a 12 s end card without voice. No jokes, no gag devices; plain name labels only.
+const K = window.CAST, K2 = window.CAST2, PR = window.PROPS, S = window.SCENE, T = window.SETS;
+const { C, INK } = K;
+const { ease, easeOut, win, lerp, popLabel, arrow, motes, blink, clamp, rnd, stamp } = S;
+const TEXT = `The war goes on. You beat the queen of the Amazons, and a son of the Dawn. Then, at the gates of Troy, an arrow flies. It comes from Paris. Remember that apple? Paris is the one who picked who got it. That choice started this war. Apollo guides his arrow. Into your heel. The one spot the river never touched. The fastest man alive, stopped by his own foot. Your ashes go into a golden jar, together with the ashes of Patroclus. And down in the land of the dead, Odysseus finds you. One last time. He says you're lucky. You rule down here. You tell him, better a poor man's servant, alive, than king of all the dead. Then you ask about your son, the one you left on that island. He's brave, Odysseus says. Just like you. And you walk away across a field of grey flowers. Happy. Almost three thousand years later, we still know your name. Not bad for a baby hanging by one heel. You killed Troy's greatest prince, lost your best friend, and still gave a father back his son. So, tell me, would you still choose the short life?`;
+const bob = (f, k = 0) => Math.sin((f + k * 13) / 14) * 3.5;
+const G = (x, y, s, inner, o = {}) => `<g transform="translate(${(+x).toFixed(1)} ${(+y).toFixed(1)})${o.rot ? ` rotate(${(+o.rot).toFixed(2)})` : ''} scale(${s})"${o.filter ? ` filter="url(#${o.filter})"` : ''}${o.op !== undefined ? ` opacity="${(+o.op).toFixed(2)}"` : ''}>${inner}</g>`;
+const SERIF = `font-family="Constantia, Palatino Linotype, Georgia, serif"`;
+const ITAL = `font-family="Segoe UI, Arial, sans-serif" font-weight="700" font-style="italic"`;
+const FULL = (fill, op) => `<rect x="-200" y="-200" width="2320" height="1480" fill="${fill}" opacity="${(+op).toFixed(2)}"/>`;
+
+// ---------- Achilles in the new armour (as in chapter VII): brighter bronze + the world shield ----------
+const NEW = { metal: '#efc15a', metalS: '#c28c2c', metalL: '#fff0b8', crest: '#c8302a' };
+const POSE_H = { stand: [-196, 0], walk: [-192, 0], run: [-184, 12], kneel: [-120, 0], sit: [-150, 0], lunge: [-160, 8], scream: [-196, 0] };
+function achNew(o = {}) {
+  const pose = o.pose || 'stand', b = o.breathe || 0;
+  let s = K2.achilles({ cape: true, ...o, shieldOn: false, P: { ...NEW, ...(o.P || {}) } });
+  if (o.shield === false) return s;
+  const [hy, lean] = POSE_H[pose];
+  const sp = pose === 'run' ? [-118, -312 + b, 90] : pose === 'lunge' ? [-124, -330 + b, 90] : [-112, -300 + b, 94];
+  let w = `<g transform="translate(0 ${hy + 196}) rotate(${lean} 0 -196)"><g transform="translate(${sp[0]} ${sp[1]})">${PR.worldShield({ R: sp[2], rot: o.shieldRot || 0 })}</g></g>`;
+  if (o.dir === -1) w = `<g transform="scale(-1 1)">${w}</g>`;
+  return s + w;
+}
+const shadeAch = (o = {}) => K2.achilles({ armor: false, expr: 'sad', ...o });
+// Odysseus carries a small oil lamp down here (it hides the gift box he always holds)
+function odysseus(o = {}) {
+  const b = o.breathe || 0, f = o.f || 0;
+  return K.odysseus(o) + `<g transform="translate(0 ${b})"><circle cx="118" cy="-312" r="90" fill="#ffd36b" opacity="0.22"/>
+    <path d="M18,-262 Q20,-330 65,-332 Q110,-330 112,-262 Q102,-232 65,-232 Q28,-232 18,-262 Z" fill="#b5553a" stroke="${INK}" stroke-width="4"/>
+    <path d="M30,-292 Q65,-306 100,-292" fill="none" stroke="#8a3a22" stroke-width="5"/><path d="M106,-284 L138,-300 L134,-280 Z" fill="#b5553a" stroke="${INK}" stroke-width="4"/>
+    <g transform="translate(136 -300)">${PR.flame(f, 0.32, false, 3)}</g>${K.hand(66, -236, 15)}</g>`;
+}
+
+// ---------- defs ----------
+function defs() {
+  return [
+    T.grad('eos', [[0, '#3a3466'], [0.45, '#c96a96'], [0.7, '#f2a0a8'], [1, '#ffd6b0']]),
+    T.grad('sunset', [[0, '#2a1830'], [0.35, '#7a3550'], [0.6, '#e0704a'], [0.78, '#f7b25a'], [1, '#f7c87a']]),
+    T.grad('museum', [[0, '#120c10'], [1, '#2a1c1a']]),
+    T.grad('stone', [[0, '#9a958c'], [1, '#77726a']]),
+    `<radialGradient id="redGlow"><stop offset="0" stop-color="#ff5a2a" stop-opacity="0.75"/><stop offset="0.5" stop-color="#b0201a" stop-opacity="0.35"/><stop offset="1" stop-color="#2a0606" stop-opacity="0"/></radialGradient>`,
+    `<radialGradient id="warmGold" cx="0.5" cy="0.42" r="0.75"><stop offset="0" stop-color="#fff1c8"/><stop offset="0.45" stop-color="#f6c46a"/><stop offset="1" stop-color="#b8662e"/></radialGradient>`,
+    `<radialGradient id="spotlight" cx="0.5" cy="0.55" r="0.5"><stop offset="0" stop-color="#ffe6b0" stop-opacity="0.55"/><stop offset="1" stop-color="#ffe6b0" stop-opacity="0"/></radialGradient>`,
+    `<radialGradient id="memEdge" cx="0.5" cy="0.5" r="0.72"><stop offset="0.55" stop-color="#f6e6c4" stop-opacity="0"/><stop offset="1" stop-color="#f6e6c4" stop-opacity="0.85"/></radialGradient>`,
+    `<radialGradient id="hopeGlow" cx="0.55" cy="0.45" r="0.6"><stop offset="0" stop-color="#ffe2a8" stop-opacity="0.55"/><stop offset="1" stop-color="#ffe2a8" stop-opacity="0"/></radialGradient>`,
+    `<radialGradient id="heelGlow"><stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="0.4" stop-color="#e8fbff" stop-opacity="0.5"/><stop offset="1" stop-color="#e8fbff" stop-opacity="0"/></radialGradient>`,
+    `<clipPath id="vigOval"><ellipse cx="960" cy="520" rx="640" ry="370"/></clipPath>`,
+    // a god seen as golden light: everything mapped to gold, a little see-through, soft
+    `<filter id="godGold" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.45 0.45 0.15 0 0.32  0.38 0.38 0.12 0 0.22  0.12 0.12 0.04 0 0.02  0 0 0 0.62 0" result="g"/><feGaussianBlur in="g" stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="g"/></feMerge></filter>`,
+  ].join('');
+}
+
+// ---------- helpers ----------
+function puff(x, y, t, w = 160, r = 34, col = '#e8cfa8', seed = 0) { return t > 0 && t < 1 ? `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)})">${PR.dustCloud({ t, w, r, col, seed })}</g>` : ''; }
+// a picture inside a soft oval, floating in the grey land of the dead
+function oval(inner, f) {
+  return `<g clip-path="url(#vigOval)">${inner}</g>
+    <ellipse cx="960" cy="520" rx="640" ry="370" fill="none" stroke="#e9e4f6" stroke-width="60" opacity="0.55" filter="url(#soft)"/>
+    <ellipse cx="960" cy="520" rx="640" ry="370" fill="none" stroke="#fff6dc" stroke-width="5" opacity="0.7"/>`;
+}
+// a black-figure vase with a warrior on it (spear + round shield)
+function vase2(x, y, s) {
+  return `<g transform="translate(${x} ${y}) scale(${s})">
+    <path d="M-40,-200 L40,-200 L34,-170 Q110,-130 100,-20 Q90,70 40,100 L50,130 L-50,130 L-40,100 Q-90,70 -100,-20 Q-110,-130 -34,-170 Z" fill="#c8662e" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M-34,-170 Q-90,-170 -96,-110 M34,-170 Q90,-170 96,-110" fill="none" stroke="${INK}" stroke-width="8"/>
+    <rect x="-90" y="-72" width="180" height="9" fill="${INK}"/><rect x="-86" y="66" width="172" height="8" fill="${INK}"/>
+    ${[-80, -56, -32, -8, 16, 40, 64].map(xx => `<path d="M${xx},-84 l0,-8 l10,0 l0,4" fill="none" stroke="${INK}" stroke-width="2.5"/>`).join('')}
+    <g transform="translate(0 60) scale(0.48)">${PR.bfFigure('spear')}</g>
+    <path d="M-66,-150 Q-92,-100 -86,-40" fill="none" stroke="#f0a070" stroke-width="7" stroke-linecap="round" opacity="0.6"/></g>`;
+}
+// a woven basket with the baby in it (end card)
+function basket(f, o = {}) {
+  let s = `<ellipse cx="0" cy="-118" rx="190" ry="40" fill="#8a5a2e" stroke="${INK}" stroke-width="5"/>`;
+  s += G(0, -40, 0.72, K.babyAchilles({ expr: o.expr || 'happy', blink: o.blink || 0, breathe: o.breathe || 0, armsUp: o.armsUp }));
+  s += `<path d="M-190,-118 Q-196,-20 -150,0 Q0,18 150,0 Q196,-20 190,-118 Q0,-84 -190,-118 Z" fill="#c9924e" stroke="${INK}" stroke-width="5"/>`;
+  for (let i = 0; i < 3; i++) s += `<path d="M-186,${-96 + i * 32} Q0,${-64 + i * 30} 186,${-96 + i * 32}" fill="none" stroke="#9c6a34" stroke-width="5"/>`;
+  for (let x = -160; x <= 160; x += 40) s += `<path d="M${x},${-100 + Math.abs(x) * 0.05} L${x * 0.9},${-4}" stroke="#9c6a34" stroke-width="4"/>`;
+  s += `<path d="M-120,-112 Q-60,-150 0,-128 Q60,-150 120,-112 Q60,-100 0,-108 Q-60,-100 -120,-112 Z" fill="#9cc3e0" stroke="${INK}" stroke-width="4"/>`;
+  return s;
+}
+// the old hands and the young hands (chapter VIII), for the closing montage
+const OLD = ['#efc8a6', '#d4a382'];
+function bigHand(skin, skinS, old) {
+  let s = '';
+  const L = (x1, y1, x2, y2, w) => `<path d="M${x1},${y1} L${x2},${y2}" stroke="${INK}" stroke-width="${w + 8}" stroke-linecap="round"/><path d="M${x1},${y1} L${x2},${y2}" stroke="${skinS}" stroke-width="${w}" stroke-linecap="round"/><path d="M${x1 - 3},${y1 - 3} L${x2 - 3},${y2 - 3}" stroke="${skin}" stroke-width="${w * 0.7}" stroke-linecap="round"/>`;
+  for (const [y, len] of [[-36, 70], [-12, 78], [12, 74], [36, 62]]) s += L(110, y, 110 + len, y + y * 0.12, 26);
+  s += `<path d="M0,-52 Q70,-64 128,-50 Q150,-40 150,0 Q150,40 128,50 Q70,64 0,52 Z" fill="${skinS}" stroke="${INK}" stroke-width="4"/>
+    <path d="M6,-44 Q70,-56 122,-44 Q138,-30 138,0 Q100,-10 6,-6 Z" fill="${skin}"/>`;
+  s += L(40, -44, 112, -78, 30);
+  s += old ? `<path d="M120,-30 q8,6 0,12 M120,-6 q8,6 0,12 M120,18 q8,6 0,12 M60,-20 q30,-6 50,4 M56,16 q30,-4 46,6" fill="none" stroke="${skinS}" stroke-width="4" stroke-linecap="round" opacity="0.9"/>`
+    : `<path d="M118,-30 q6,5 0,10 M118,-6 q6,5 0,10 M118,18 q6,5 0,10" fill="none" stroke="${skinS}" stroke-width="3.5" stroke-linecap="round"/>`;
+  return s;
+}
+function handsCloseUp() {
+  const arm = (x1, y1, x2, y2, w, col, colS) => `<path d="M${x1},${y1} L${x2},${y2}" stroke="${INK}" stroke-width="${w + 8}" stroke-linecap="round"/><path d="M${x1},${y1} L${x2},${y2}" stroke="${colS}" stroke-width="${w}" stroke-linecap="round"/><path d="M${x1 - 6},${y1 - 8} L${x2 - 6},${y2 - 8}" stroke="${col}" stroke-width="${w * 0.66}" stroke-linecap="round"/>`;
+  let s = arm(-200, 760, 700, 640, 150, '#5b3a6c', '#3e2649') + arm(-200, 960, 720, 800, 150, '#5b3a6c', '#3e2649');
+  s += `<path d="M680,568 L708,716" stroke="${INK}" stroke-width="40" stroke-linecap="round"/><path d="M680,568 L708,716" stroke="#c9a46c" stroke-width="30" stroke-linecap="round"/>
+    <path d="M700,728 L730,876" stroke="${INK}" stroke-width="40" stroke-linecap="round"/><path d="M700,728 L730,876" stroke="#c9a46c" stroke-width="30" stroke-linecap="round"/>`;
+  s += G(760, 640, 1.2, bigHand(OLD[0], OLD[1], true), { rot: -6 }) + G(780, 800, 1.2, `<g transform="scale(1 -1)">${bigHand(OLD[0], OLD[1], true)}</g>`, { rot: 4 });
+  s += arm(2140, 420, 1170, 580, 128, C.skin, C.skinS) + arm(2140, 860, 1190, 740, 128, C.skin, C.skinS);
+  s += `<path d="M1172,514 L1188,648" stroke="${INK}" stroke-width="36" stroke-linecap="round"/><path d="M1172,514 L1188,648" stroke="${C.leather}" stroke-width="26" stroke-linecap="round"/>
+    <path d="M1192,676 L1204,806" stroke="${INK}" stroke-width="36" stroke-linecap="round"/><path d="M1192,676 L1204,806" stroke="${C.leather}" stroke-width="26" stroke-linecap="round"/>`;
+  s += G(1150, 586, 1.2, `<g transform="rotate(180) scale(1 -1)">${bigHand(C.skin, C.skinS)}</g>`, { rot: 8 }) + G(1170, 736, 1.2, `<g transform="rotate(180)">${bigHand(C.skin, C.skinS)}</g>`, { rot: -6 });
+  s += arm(880, 640, 1000, 612, 34, OLD[0], OLD[1]) + arm(900, 800, 1010, 770, 34, OLD[0], OLD[1]);
+  return s;
+}
+// the CHOSEN stamp of chapter I (scene.js stamp timing), with a pale ink-soaked paper patch so it reads on the dark vase
+function stampLit(f, f0, x, y, size, str) {
+  const dd = f - f0;
+  if (dd < 0) return '';
+  const s = dd < 3 ? lerp(1.9, 0.94, easeOut(dd / 3)) : dd < 6 ? lerp(0.94, 1, ease((dd - 3) / 3)) : 1;
+  const w = str.length * size * 0.72 + size * 0.9, h = size * 1.45;
+  return `<g transform="translate(${x} ${y}) rotate(-9) scale(${s.toFixed(3)})"><rect x="${-w / 2 - 6}" y="${-h / 2 - 6}" width="${w + 12}" height="${h + 12}" rx="${size * 0.22}" fill="#f4e6c6" opacity="0.88"/></g>${stamp(f, f0, x, y, size, str)}`;
+}
+// the two scrolls of chapter I (same look): the grey long life, the golden short life
+function scrollsI(f, l, o = {}) {
+  const grey = `<g opacity="0.85"><rect x="-90" y="-10" width="180" height="120" fill="#b9b4ac" stroke="${INK}" stroke-width="5"/><path d="M-110,-10 L0,-80 L110,-10 Z" fill="#8e8a84" stroke="${INK}" stroke-width="5"/>
+      <rect x="-30" y="40" width="60" height="70" fill="#7d7872"/><circle cx="150" cy="70" r="26" fill="#9a958d" stroke="${INK}" stroke-width="4"/><path d="M130,96 Q150,160 172,96 Z" fill="#9a958d" stroke="${INK}" stroke-width="4"/></g>
+      ${S.word(0, 210, 34, 'nobody remembers', { fill: '#e9e4da', sw: 7 })}`;
+  const gold = `${T.vase(0, 60, 0.75)}${[0, 1, 2].map(i => { const t = ((l / 40) + i / 3) % 1; return `<text x="${(90 + i * 22).toFixed(0)}" y="${(30 - t * 120).toFixed(0)}" font-size="46" fill="#f6d35b" stroke="${INK}" stroke-width="3" paint-order="stroke" opacity="${(1 - t).toFixed(2)}">♪</text>`; }).join('')}
+      ${S.word(0, 210, 34, 'sung forever', { fill: '#f6d35b', sw: 7 })}`;
+  const u = o.u ?? 1, lx = 650, rx = 1270, y = 470, gl = o.glow || 0;
+  return `<circle cx="${rx}" cy="${y}" r="${(320 + gl * 120).toFixed(0)}" fill="#ffd36b" opacity="${(0.18 + gl * 0.25).toFixed(2)}" filter="url(#soft)"/>
+    <g opacity="${(1 - 0.45 * gl).toFixed(2)}">${T.scroll(lx, y, 380, 470, u, 'LONG LIFE', grey, { paper: '#d9d3c6' })}</g>
+    ${T.scroll(rx, y, 380, 470, u, 'SHORT LIFE', gold, { titleCol: '#f6d35b' })}`;
+}
+
+// ---------- shots ----------
+const R = RUN({ TEXT, OFF: 1.6, card: ['IX', 'The Heel'], tail: 13.0, defs, SHOTS: [
+  // 1 · "The war goes on." – the plain under smoke, fighting silhouettes on the horizon
+  { cue: 'The war goes', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.04], [d, 980, 560, 1.1]]);
+    let fight = '';
+    [[330, 0, 780], [760, 1, 800], [1180, 2, 770], [1600, 0, 795]].forEach(([x, k, y], i) => { const j = Math.sin(l / 3 + i * 2) * 12;
+      fight += G(x - 95 + j, y, 0.36, K2.soldier({ side: 'greek', k, pose: 'lunge' }), { filter: 'sil' }) + G(x + 95 - j, y, 0.36, K2.soldier({ side: 'trojan', k, pose: i % 2 ? 'stand' : 'lunge', dir: -1, arms: 'spear' }), { filter: 'sil' }); });
+    return { cam, bg: T.battlefield(f, { time: 'day' }) + `<ellipse cx="960" cy="700" rx="1100" ry="170" fill="#f0c890" opacity="0.45" filter="url(#soft)"/>`,
+      fg: `${fight}${puff(520, 800, (l % 20) / 20, 300, 40, '#e8cfa8', 2)}${puff(1250, 800, ((l + 10) % 20) / 20, 300, 40, '#e8cfa8', 5)}
+      ${T.smoke(f, 960, 700, 1.2, '#5a4a4e', 3, 0.4)}` };
+  } },
+  // 2 · "You beat the queen of the Amazons," – Penthesilea at the gallop, crescent shield, spear
+  { cue: 'You beat', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 560, 1.1], [d, 940, 560, 1.14]]);
+    const ph = (l * 0.045) % 1, hb = -Math.max(0, Math.sin(ph * Math.PI * 2)) * 20, lab = R.at('queen');
+    let ground = '';
+    for (let i = 0; i < 14; i++) { const a = rnd(i + 30), x = ((a * 2600 - l * 30) % 2600 + 2600) % 2600 - 300; ground += `<path d="M${x.toFixed(0)},${(960 + a * 100).toFixed(0)} l70,0" stroke="#8a5e3a" stroke-width="7" stroke-linecap="round" opacity="0.6"/>`; }
+    return { cam, bg: T.battlefield(f, { time: 'day' }) + ground + `<ellipse cx="900" cy="640" rx="900" ry="200" fill="#f4d4a0" opacity="0.4" filter="url(#soft)"/>`
+        + PR.speedLines({ w: 1900, h: 160, n: 5, f, col: '#fff2dc' }).replace(/<path/g, '<path opacity="0.6" transform="translate(0 860)"'),
+      fg: `${puff(560, 960, (l % 10) / 10, 220, 34, '#d8a87a', 1)}${T.shadow(800, 960, 230, 0.3)}
+      ${G(800, 960, 0.92, PR.horse({ gait: 'gallop', phase: ph, coat: '#e9e1d3', coatS: '#c7bba6', coatD: '#9c9080', muzzle: '#f4ece0', mane: '#3a2a26', maneS: '#2a1c18', blanket: true, blanketCol: '#b8352c' }) + G(0, -392 + hb, 1, K2.penthesilea({ breathe: 0, blink: blink(f, [lab + 18]) })))}
+      ${popLabel(f, lab, 1360, 300, 68, 'PENTHESILEA', { sub: '(queen of the Amazons)' })}` };
+  } },
+  // 3 · "and a son of the Dawn." – Memnon in gold armour against a pink dawn
+  { cue: 'and a son', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.06], [d, 940, 540, 1.14]]);
+    const lab = R.at('son');
+    return { cam, bg: `${T.sky('eos')}${T.rays(f, 960, 700, 20, '#ffe2e8', 0.13, 0.002)}${T.sun(960, 760, 170, '#ffe6cc', '#ffb8b0')}
+      ${T.cloud(300, 300, 1.3, '#f6b8c8', f, 0.2, 0.7)}${T.cloud(1560, 240, 1.1, '#f6b8c8', f, 0.15, 0.6)}
+      <path d="M-100,820 Q500,780 1000,810 Q1500,840 2020,800 L2020,1100 L-100,1100 Z" fill="#7a4a5a"/>${motes(f, 22, { col: '#ffe2ec', seed: 3 })}`,
+      fg: `${T.shadow(900, 940, 140, 0.3)}${G(900, 940, 1.02, K2.memnon({ breathe: bob(f), blink: blink(f, [lab + 16]) }))}
+      ${popLabel(f, lab, 1400, 330, 74, 'MEMNON', { sub: '(son of the Dawn)' })}` };
+  } },
+  // 4 · "Then, at the gates of Troy," – you in front of the gate, looking up at the wall
+  { cue: 'Then, at the gates', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.1], [d, 960, 580, 1.18]]);
+    return { cam, bg: T.troyGate(f, { time: 'dusk', open: false }),
+      fg: `${T.shadow(960, 960, 120, 0.3)}${G(960, 960, 0.86, achNew({ expr: 'determined', breathe: bob(f), blink: blink(f, [R.SH[3].a + 20]) }))}` };
+  } },
+  // 5 · "an arrow flies." – one arrow streaks over the battlements
+  { cue: 'an arrow flies.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.04], [d, 960, 540, 1.08]]);
+    const t = win(l, 2, d - 2), x = lerp(2150, -300, t), y = lerp(360, 560, t) - Math.sin(t * Math.PI) * 60;
+    const ang = 180 - Math.atan2(200 / 2450 + Math.cos(t * Math.PI) * 60 * Math.PI / 2450, 1) * 57.3;
+    return { cam, bg: `${T.sky('troy')}${T.sun(1500, 760, 140, '#ffd59a', '#ffb26b')}${T.cloud(500, 260, 1.2, '#c86a7a', f, 0.3, 0.6)}${T.cloud(1300, 200, 1, '#c86a7a', f, 0.25, 0.5)}
+      ${T.troyWallFront(820, '#7a5a5e', '#5a4048')}`,
+      fg: `<path d="M${(x + 40).toFixed(0)},${y.toFixed(0)} L${(x + 560).toFixed(0)},${(y - 40).toFixed(0)}" stroke="#fff6e0" stroke-width="10" stroke-linecap="round" opacity="0.6"/>
+      <path d="M${(x + 40).toFixed(0)},${(y + 14).toFixed(0)} L${(x + 380).toFixed(0)},${(y - 10).toFixed(0)}" stroke="#fff6e0" stroke-width="5" stroke-linecap="round" opacity="0.45"/>
+      ${G(x, y, 1.6, PR.arrowShaft({ len: 260, angle: ang - 180 }), { rot: 180 })}` };
+  } },
+  // 6 · "It comes from Paris." – Paris behind a battlement, bow drawn
+  { cue: 'It comes from', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1000, 520, 1.08], [d, 1040, 500, 1.16]]);
+    const lab = R.at('Paris.');
+    return { cam, bg: T.troyWallBack(f, { sky: 'troy' }) + FULL('#2a1430', 0.25),
+      fg: `${G(1120, 940, 1.2, K2.paris({ breathe: bob(f), blink: blink(f, [lab + 14]) }))}${T.troyWallFront(800, '#8a6a62', '#6a4e4a')}
+      ${popLabel(f, lab, 560, 300, 80, 'PARIS')}` };
+  } },
+  // 7 · "Remember that apple?" – the golden apple of the prologue in its red glow, everything else dark
+  { cue: 'Remember that apple?', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 540, 1.1]]);
+    return { cam, bg: `<rect x="-200" y="-200" width="2320" height="1480" fill="#0c0606"/><circle cx="960" cy="540" r="${(560 + Math.sin(f / 8) * 20).toFixed(0)}" fill="url(#redGlow)"/>${motes(f, 22, { col: '#ff9a6a', seed: 11 })}`,
+      fg: G(960, 540 + Math.sin(f / 12) * 10, 1, PR.goldenApple({ r: 150, glow: 0.6, glowCol: '#ff7a4a', text: 1, angle: Math.sin(f / 20) * 6 })) };
+  } },
+  // 8 · "Paris is the one who picked who got it." – young Paris gives the apple to one goddess; the other two glare
+  { cue: 'Paris is the', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1100, 600, 1.08], [d, 1120, 590, 1.12]]);
+    const give = ease(win(f, R.at('picked', 1, -2), R.at('got', 1, 2)));
+    const ax = lerp(888, 1000, give), ay = lerp(552, 640, give) - Math.sin(give * Math.PI) * 60;
+    return { cam, bg: T.meadow(f, {}) + FULL('#f2b070', 0.2),
+      fg: `${T.shadow(700, 935, 100, 0.2)}${G(700, 935, 0.92, K2.paris({ shepherd: true, arms: 'reach', expr: 'smile', look: 1, breathe: bob(f) }))}
+      ${G(1080, 935, 0.92, K2.aphrodite({ expr: give > 0.6 ? 'happy' : 'smile', breathe: bob(f, 1) }))}
+      ${G(1400, 935, 0.92, K2.hera({ arms: 'crossed', expr: give > 0.5 ? 'angry' : 'stern', look: -1, breathe: bob(f, 2) }))}
+      ${G(1690, 935, 0.92, K2.athena({ arms: 'crossed', expr: give > 0.5 ? 'angry' : 'stern', look: -1, breathe: bob(f, 3) }))}
+      ${G(ax, ay, 1, PR.goldenApple({ r: 30, glow: 0.4 }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#memEdge)" opacity="0.8"/>` };
+  } },
+  // 9 · "That choice started this war." – the apple melts into flames, and behind it Troy burns
+  { cue: 'That choice', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.12], [d, 960, 560, 1.04]]);
+    const melt = win(l, 4, 22);
+    let fires = '';
+    [[300, 560, 0.7], [620, 540, 0.9], [1340, 540, 0.9], [1640, 560, 0.7], [960, 420, 1.1]].forEach(([x, y, s], i) => { fires += T.flame(f, x, y, s * easeOut(win(l, 6 + i * 3, 24 + i * 3)), i); });
+    return { cam, bg: T.troyDusk(f, {}) + `<g opacity="${easeOut(win(l, 6, 26)).toFixed(2)}">${T.smoke(f, 500, 520, 1.4, '#2a1a22', 1, 0.55)}${T.smoke(f, 1400, 520, 1.3, '#2a1a22', 5, 0.5)}${fires}</g>`,
+      fg: `${melt < 1 ? G(960, 520, 1 - melt * 0.6, PR.goldenApple({ r: 150, glow: 0.6, glowCol: '#ff7a4a', text: 1 }), { op: 1 - melt }) : ''}
+      ${melt > 0 && melt < 1 ? G(960, 640, 1.6 * Math.sin(melt * Math.PI), PR.flame(f, 1.4, false, 2)) : ''}` };
+  } },
+  // 10 · "Apollo guides his arrow." – a giant glowing god in the clouds bends the arrow down
+  { cue: 'Apollo guides', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.02], [d, 960, 560, 1.08]]);
+    const t = win(l, 0, d), P = u => { const a = 1 - u; return [a * a * 1900 + 2 * a * u * 980 + u * u * 150, a * a * 300 + 2 * a * u * 430 + u * u * 980]; };
+    const [x, y] = P(t), [x2, y2] = P(Math.min(1, t + 0.02)), ang = Math.atan2(y2 - y, x2 - x) * 57.3;
+    let trail = '';
+    for (let i = 1; i <= 12; i++) { const u = t - i * 0.025; if (u < 0) break; const [tx, ty] = P(u); trail += `<circle cx="${tx.toFixed(0)}" cy="${ty.toFixed(0)}" r="${(14 - i * 0.8).toFixed(1)}" fill="#fff3c4" opacity="${(0.8 - i * 0.06).toFixed(2)}"/>`; }
+    return { cam, bg: `${T.sky('troy')}${T.sun(500, 760, 120, '#ffd59a', '#ffb26b')}${T.cloud(1300, 320, 2.2, '#e8a0a0', f, 0.15, 0.55)}${T.cloud(400, 220, 1.6, '#e8a0a0', f, 0.1, 0.5)}
+      <path d="M-100,900 Q960,860 2020,900 L2020,1100 L-100,1100 Z" fill="#3a2430"/>
+      <circle cx="1300" cy="520" r="520" fill="#ffd36b" opacity="0.22" filter="url(#soft)"/>
+      <g filter="url(#godGold)"><g transform="translate(1560 1500) scale(-2.4 2.4)">${K2.apollo({ arms: 'reach', expr: 'calm' })}</g></g>
+      <circle cx="1070" cy="540" r="${(90 + Math.sin(f / 5) * 10).toFixed(0)}" fill="#fff3c4" opacity="0.35" filter="url(#soft)"/>`,
+      fg: `${trail}${G(x, y, 1, PR.arrowShaft({ len: 240, angle: ang }))}<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="40" fill="#fff3c4" opacity="0.4" filter="url(#soft)"/>` };
+  } },
+  // 11 · "Into your heel." – the heel; the arrow arrives in a white flash (no wound)
+  { cue: 'Into your', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 580, 1.6], [d, 960, 580, 1.64]]);
+    const hit = R.at('heel.', 1, 0), t = win(f, hit - 14, hit), flash = f >= hit ? Math.max(0, 1 - (f - hit) / 12) : 0;
+    const ax = lerp(1700, 1010, t), ay = lerp(380, 506, t);
+    const leg = `<path d="M960,-120 L990,470" stroke="${INK}" stroke-width="168" stroke-linecap="round"/><path d="M960,-120 L990,470" stroke="${C.skinS}" stroke-width="160" stroke-linecap="round"/><path d="M948,-120 L978,460" stroke="${C.skin}" stroke-width="112" stroke-linecap="round"/>
+      <path d="M884,100 Q960,80 1046,100 L1052,420 Q980,440 908,420 Z" fill="${NEW.metalS}" stroke="${INK}" stroke-width="6"/><path d="M896,108 Q960,92 1030,108 L1034,410 Q980,424 920,410 Z" fill="${NEW.metal}"/>
+      <path d="M930,140 L930,390" stroke="${NEW.metalL}" stroke-width="10" stroke-linecap="round"/>
+      <path d="M1040,470 Q1050,560 990,580 L700,590 Q620,590 620,548 Q624,506 700,498 L900,470 Z" fill="${C.skinS}" stroke="${INK}" stroke-width="6"/>
+      <path d="M1030,476 Q1036,548 990,562 L720,570 Q650,568 652,540 Q660,512 720,506 L900,480 Z" fill="${C.skin}"/>
+      <path d="M640,592 L1060,592" stroke="${INK}" stroke-width="22" stroke-linecap="round"/><path d="M640,592 L1060,592" stroke="${C.leather}" stroke-width="14" stroke-linecap="round"/>
+      <path d="M900,480 L960,590 M780,500 L820,590 M990,470 Q1060,520 1000,580" fill="none" stroke="${C.leather}" stroke-width="12" stroke-linecap="round"/>`;
+    return { cam, bg: `${T.sky('sunset')}<rect x="-200" y="600" width="2320" height="700" fill="#4a2a26"/><path d="M-200,604 L2120,604" stroke="#6a3a2c" stroke-width="8"/>${motes(f, 16, { col: '#ffcf9a', seed: 19 })}`,
+      fg: `${leg}${f < hit ? G(ax, ay, 1.1, PR.arrowShaft({ len: 300, angle: 190 })) : `${G(1040, 500, 1.1, PR.arrowShaft({ len: 300, angle: 190 }))}${G(990, 520, 1, '').replace('<g', '<g')}`}
+      ${f >= hit ? `<circle cx="1010" cy="520" r="${(120 + (f - hit) * 6).toFixed(0)}" fill="url(#heelGlow)" opacity="${Math.max(0.25, 1 - (f - hit) / 20).toFixed(2)}"/>` : ''}
+      ${f >= hit ? leg.split('<path d="M1040,470')[1] ? `<path d="M1040,470${leg.split('<path d="M1040,470')[1].split('/>')[0]}/>` : '' : ''}`,
+      over: flash > 0 ? `<rect width="1920" height="1080" fill="#fffef6" opacity="${flash.toFixed(2)}"/>` : '' };
+  } },
+  // 12 · "The one spot the river never touched." – match cut: the baby's dry heel over the Styx (hook)
+  { cue: 'The one spot', draw(f, l, d) {
+    // the heel lands on the same screen point as the grown-up heel of the shot before (1040, 444)
+    const cam = S.camera(l, [[0, 960, 360, 1.6], [d, 960, 360, 1.66]]);
+    const water = 386, hx = 1010, hy = 300;
+    return { cam, bg: T.styx(f, water, true),
+      fg: `${G(hx, hy, 1, K.babyHang({ expr: 'neutral', swing: Math.sin(l / 10) * 0.4 }))}
+      <rect x="-200" y="${water}" width="2320" height="900" fill="url(#styxw)" opacity="0.62"/>${T.seaBand(water, 500, 'none', '#3f8f92', f, 61)}
+      <path d="M-200,${water} L2120,${water}" stroke="#5fb3b0" stroke-width="5" opacity="0.6"/>
+      <circle cx="${hx - 2}" cy="${hy - 6}" r="${(90 + Math.sin(f / 6) * 8).toFixed(0)}" fill="url(#heelGlow)" opacity="0.55"/>
+      ${T.hangHand(hx, hy)}` };
+  } },
+  // 13 · "The fastest man alive," – slow motion at sunset: the run, the dust hanging in the air
+  { cue: 'The fastest', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 600, 1.2], [d, 930, 600, 1.24]]);
+    const o = l * 9, rb = Math.abs(Math.sin(l / 7)) * -12;
+    let ground = '';
+    for (let i = 0; i < 16; i++) { const a = rnd(i + 50), x = ((a * 2600 - o) % 2600 + 2600) % 2600 - 300; ground += `<ellipse cx="${x.toFixed(0)}" cy="${(950 + a * 110).toFixed(0)}" rx="${(24 + a * 30).toFixed(0)}" ry="8" fill="#3a1c1e"/>`; }
+    let dust = '';
+    for (let i = 0; i < 8; i++) { const a = rnd(i + 80), t = ((l / 60) + a) % 1; dust += `<circle cx="${(820 - t * 500 - a * 100).toFixed(0)}" cy="${(930 - t * 90 - a * 40).toFixed(0)}" r="${(20 + t * 40).toFixed(0)}" fill="#f0a870" opacity="${(0.55 * (1 - t)).toFixed(2)}"/>`; }
+    return { cam, bg: `${T.sky('sunset')}<circle cx="1300" cy="760" r="420" fill="#ffb26b" opacity="0.25"/><circle cx="1300" cy="760" r="250" fill="#ffe2a0"/>
+      ${T.troySkyline(640, 0.5, '#3a1a26')}<rect x="-200" y="880" width="2320" height="400" fill="#5a2a26"/>${ground}`,
+      fg: `${dust}${G(900, 930 + rb, 1.0, achNew({ pose: 'run', expr: 'determined' }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="#ff8a4a" opacity="0.08"/>` };
+  } },
+  // 14 · "stopped by his own foot." – silhouette against the sun: down on one knee, the spear falls
+  { cue: 'stopped by', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 620, 1.06], [d, 960, 640, 1.12]]);
+    const down = l >= 8, dip = easeOut(win(l, 8, 26)), sp = ease(win(l, 6, 34));
+    return { cam, bg: `${T.sky('sunset')}<circle cx="960" cy="760" r="520" fill="#ffb26b" opacity="0.25"/><circle cx="960" cy="760" r="330" fill="#ffe2a0"/>
+      ${T.cloud(300, 300, 1.4, '#c86a5a', f, 0.1, 0.5)}${T.cloud(1600, 240, 1.1, '#c86a5a', f, 0.1, 0.45)}
+      <rect x="-200" y="900" width="2320" height="400" fill="#1e1219"/>${motes(f, 22, { col: '#ffb070', seed: 25 })}`,
+      fg: `<g filter="url(#sil)">${G(960, 905 + (down ? 0 : 0), 1.1, down ? achNew({ pose: 'kneel', spear: false, arms: 'down' }) : achNew({ spear: false }), { rot: down ? lerp(-4, 0, dip) : 0 })}
+      ${G(960 + 120 * 1.1 + sp * 120, 905 - 230 * 1.1 * (1 - sp) - 12 * sp, 1.1, PR.spear({ len: 600, angle: sp * 82 }))}</g>
+      ${puff(1120, 905, win(l, 30, 50), 200, 30, '#c97a52', 4)}` };
+  } },
+  // 15 · "Your ashes go into a golden jar," – the jar on a stone above the sea, the last smoke of the pyre
+  { cue: 'Your ashes', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.04], [d, 960, 540, 1.12]]);
+    return { cam, bg: T.beach(f, { time: 'dusk', sand: 760 }),
+      fg: `<path d="M600,1100 L640,850 Q960,800 1280,850 L1320,1100 Z" fill="#6a5a50" stroke="${INK}" stroke-width="6"/>
+      <rect x="800" y="790" width="320" height="70" rx="8" fill="#b9b0a2" stroke="${INK}" stroke-width="5"/><path d="M810,808 L1110,808" stroke="#d6cfc2" stroke-width="6"/>
+      ${T.smoke(f, 1400, 900, 1.0, '#8a7a7a', 7, 0.4)}<ellipse cx="1420" cy="905" rx="80" ry="14" fill="#2a1a16"/>${T.flame(f, 1420, 900, 0.25, 2)}
+      ${G(960, 795, 1.05, PR.goldenJar({ leaves: true }))}` };
+  } },
+  // 16 · "together with the ashes of Patroclus." – close: two threads of smoke rise from it and wind round each other
+  { cue: 'together with', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.2], [d, 960, 560, 1.28]]);
+    // two soft threads of smoke that rise, widen, fade and wind round each other
+    const wisp = (ph, col) => { let p = ''; for (let i = 0; i <= 26; i++) { const t = i / 26, y = 410 - t * 600, x = 960 + Math.sin(t * 6 + ph + f / 22) * 80 * t, rr = 10 + t * 46;
+      p += `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${rr.toFixed(0)}" fill="${col}" opacity="${(0.2 * (1 - t) + 0.04).toFixed(2)}"/>`; }
+      let core = ''; for (let i = 0; i <= 16; i++) { const t = i / 16 * 0.7, y = 410 - t * 600, x = 960 + Math.sin(t * 6 + ph + f / 22) * 80 * t; core += `${i ? 'L' : 'M'}${x.toFixed(0)},${y.toFixed(0)} `; }
+      return `<g filter="url(#blur4)">${p}</g><path d="${core}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round" opacity="0.6"/>`; };
+    const grow = easeOut(win(l, 0, 40));
+    return { cam, bg: T.beach(f, { time: 'dusk', sand: 760 }) + FULL('#2a1a2a', 0.35),
+      fg: `<rect x="760" y="790" width="400" height="70" rx="8" fill="#b9b0a2" stroke="${INK}" stroke-width="5"/>
+      <g opacity="${grow.toFixed(2)}">${wisp(0, '#fff3c4')}${wisp(Math.PI, '#e8e0f0')}</g>
+      ${G(960, 795, 1.3, PR.goldenJar({ leaves: true }))}${motes(f, 16, { col: '#fff3c4', seed: 44 })}` };
+  } },
+  // 17 · "And down in the land of the dead," – the asphodel field: grey-lilac, mist, the only cool palette
+  { cue: 'And down in', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 600, 1.08]]);
+    let shades = '';
+    [[420, 760, 0.3], [1500, 740, 0.26], [1180, 790, 0.34], [760, 800, 0.3]].forEach(([x, y, s], i) => { shades += G(x + Math.sin(f / 40 + i) * 20, y, s, K2.man({ pose: 'walk', expr: 'sad', P: { tunic: '#8a8698', tunicS: '#6a667a', hair: '#9a96a8', hairS: '#7a768a' } }), { filter: 'shade', op: 0.7 }); });
+    return { cam, bg: T.underworld(f), fg: shades };
+  } },
+  // 18 · "Odysseus finds you. One last time." – Odysseus, still in colour, faces your grey shade
+  { cue: 'Odysseus finds', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.12], [d, 960, 590, 1.2]]);
+    const one = R.at('One last', 1, 0);
+    return { cam, bg: T.underworld(f),
+      fg: `${T.shadow(640, 940, 120, 0.25)}${G(640, 940, 1.0, odysseus({ f, look: 1, expr: 'smile', breathe: bob(f), blink: blink(f, [R.SH[17].a + 30]) }))}
+      ${G(1300, 940, 1.0, shadeAch({ look: -1, expr: f >= one ? 'calm' : 'sad', breathe: bob(f, 2), blink: blink(f, [one + 6]) }), { filter: 'shade' })}` };
+  } },
+  // 19 · "He says you're lucky." – Odysseus close, the lamp, a smile
+  { cue: "He says you're", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 500, 1.6], [d, 900, 490, 1.68]]);
+    return { cam, bg: T.underworld(f) + FULL('#2a2638', 0.25),
+      fg: G(880, 1120, 1.35, odysseus({ f, look: 0.6, expr: 'smile', breathe: bob(f), blink: blink(f, [R.SH[18].a + 22]) })) };
+  } },
+  // 20 · "You rule down here. You tell him," – the dead bow around you; you are not impressed
+  { cue: 'You rule', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.06], [d, 960, 620, 1.12]]);
+    const tell = R.at('tell him,', 1, -2);
+    let bow = '';
+    [[360, 1000, 0.62], [620, 980, 0.6], [1300, 980, 0.6], [1560, 1000, 0.62], [470, 880, 0.46], [1450, 880, 0.46]].forEach(([x, y, s], i) => {
+      bow += G(x, y + Math.sin(f / 16 + i) * 3, s, K2.man({ pose: 'kneel', arms: 'plead', expr: 'calm', blink: 1, look: x < 960 ? 1 : -1, headTilt: x < 960 ? 12 : -12, P: { tunic: '#8a8698', tunicS: '#6a667a', hair: '#5a5668', hairS: '#4a4658' } }), { filter: 'shade' }); });
+    return { cam, bg: T.underworld(f),
+      fg: `${G(960, 900, 0.9, shadeAch({ expr: f >= tell ? 'stern' : 'tired', look: f >= tell ? -0.8 : 0, breathe: bob(f) }), { filter: 'shade' })}${bow}` };
+  } },
+  // 21 · "better a poor man's servant, alive," – a warm picture: a man ploughing a field in the sun
+  { cue: 'better a poor', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 530, 1.06]]);
+    const x = 1060 + l * 1.4, ph = (l * 0.02) % 1;
+    let furrows = '';
+    for (let i = 0; i < 7; i++) furrows += `<path d="M-100,${820 + i * 40} Q960,${790 + i * 44} ${x - 320},${806 + i * 42}" fill="none" stroke="#7a6a30" stroke-width="6" opacity="0.6"/>`;
+    const scene = `${T.meadow(f, { time: 'gold' })}${furrows}
+      ${G(x, 880, 0.58, PR.horse({ gait: 'walk', phase: ph, coat: '#8a6a4a', coatS: '#6a4e34', coatD: '#4a3424', harness: true }))}
+      <path d="M${x - 40},${880 - 170} L${x - 270},${880 - 60}" stroke="${INK}" stroke-width="14" stroke-linecap="round"/><path d="M${x - 40},${880 - 170} L${x - 270},${880 - 60}" stroke="${C.wood}" stroke-width="7" stroke-linecap="round"/>
+      <path d="M${x - 270},${880 - 60} L${x - 250},${888}" stroke="#5a5f66" stroke-width="14" stroke-linecap="round"/><path d="M${x - 270},${880 - 60} L${x - 330},${880 - 150}" stroke="${INK}" stroke-width="12" stroke-linecap="round"/><path d="M${x - 270},${880 - 60} L${x - 330},${880 - 150}" stroke="${C.woodS}" stroke-width="6" stroke-linecap="round"/>
+      ${G(x - 400, 900 + Math.abs(Math.sin(l / 5)) * -4, 0.55, K2.man({ pose: 'walk', arms: 'hold', expr: 'happy', head: { hair: 'short', beard: 'short' }, P: { hair: '#4a3020', hairS: '#33200f', beard: '#4a3020', beardS: '#33200f', tunic: '#a08a60', tunicS: '#806a44', hem: '#806a44' } }))}`;
+    return { cam, bg: T.underworld(f) + FULL('#2a2638', 0.35), fg: oval(scene, f) };
+  } },
+  // 22 · "than king of all the dead." – back to grey: an empty throne in the mist
+  { cue: 'than king', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 620, 1.08], [d, 960, 600, 1.18]]);
+    let mist = '';
+    for (let i = 0; i < 5; i++) { const a = rnd(i + 140); mist += `<ellipse cx="${((a * 2200 + f * (0.5 + a)) % 2400 - 240).toFixed(0)}" cy="${(880 + a * 120).toFixed(0)}" rx="${(320 + a * 200).toFixed(0)}" ry="${(50 + a * 30).toFixed(0)}" fill="#e6e2f0" opacity="${(0.18 + a * 0.12).toFixed(2)}" filter="url(#soft)"/>`; }
+    return { cam, bg: T.underworld(f) + FULL('#1e1a2a', 0.3),
+      fg: `${G(960, 930, 1.25, PR.throne({}), { filter: 'shade' })}${mist}` };
+  } },
+  // 23 · "Then you ask about your son," – your grey face, hoping
+  { cue: 'Then you ask', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 500, 1.7], [d, 960, 490, 1.78]]);
+    return { cam, bg: T.underworld(f) + FULL('#2a2638', 0.3),
+      fg: G(960, 1150, 1.45, shadeAch({ expr: 'worried', look: -0.6, breathe: bob(f), blink: blink(f, [R.SH[22].a + 20]) }), { filter: 'shade' }) };
+  } },
+  // 24 · "the one you left on that island." – a warm picture: a blond boy on the cliffs of Skyros, the wind
+  { cue: 'the one you left', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 530, 1.06]]);
+    const scene = `${T.sky('beach')}${T.sun(1500, 300, 90, '#fff6d8', '#ffe8a8')}${T.cloud(500, 260, 1.1, '#ffffff', f, 0.3, 0.8)}
+      ${T.seaBand(600, 500, '#3f8fb0', '#bfe8f4', f * 1.5, 31)}
+      <path d="M200,1100 L260,760 Q420,690 700,700 Q900,712 980,760 L1040,1100 Z" fill="#8a7a5a" stroke="${INK}" stroke-width="6"/>
+      <path d="M240,780 Q420,700 700,712 Q900,722 990,772 L980,800 Q700,740 250,810 Z" fill="#7fa04a" stroke="${INK}" stroke-width="5"/>
+      ${G(640, 760, 0.95, K2.neoptolemus({ arms: 'hips', look: 1, breathe: bob(f), blink: blink(f, [R.SH[23].a + 20]) }))}
+      ${[0, 1, 2].map(i => { const t = ((l / 30) + i / 3) % 1; return `<path d="M${(820 + t * 600).toFixed(0)},${300 + i * 90} q40,-14 80,0" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity="${(0.6 * (1 - t)).toFixed(2)}"/>`; }).join('')}`;
+    return { cam, bg: T.underworld(f) + FULL('#2a2638', 0.35), fg: oval(scene, f) };
+  } },
+  // 25 · "He's brave, Odysseus says." – Odysseus tells you, warmly
+  { cue: "He's brave,", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 820, 580, 1.36], [d, 840, 570, 1.42]]);
+    return { cam, bg: T.underworld(f) + FULL('#2a2638', 0.15),
+      fg: `${G(720, 1000, 1.15, odysseus({ f, look: 1, expr: 'happy', breathe: bob(f), blink: blink(f, [R.SH[24].a + 30]) }))}
+      ${G(1330, 1060, 1.2, shadeAch({ look: -1, expr: 'worried', breathe: bob(f, 2) }), { filter: 'shade' })}` };
+  } },
+  // 26 · "Just like you." – you smile; a little colour comes back
+  { cue: 'Just like', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 500, 1.7], [d, 960, 495, 1.76]]);
+    const c = easeOut(win(l, 6, d)) * 0.45, fig = o => G(960, 1150, 1.45, shadeAch({ expr: l > 8 ? 'happy' : 'smile', look: -0.4, breathe: bob(f), ...o }));
+    return { cam, bg: T.underworld(f) + `<circle cx="960" cy="420" r="${(380 + c * 300).toFixed(0)}" fill="#ffe2a8" opacity="${(c * 0.5).toFixed(2)}" filter="url(#soft)"/>`,
+      fg: `<g filter="url(#shade)">${fig({})}</g><g opacity="${c.toFixed(2)}">${fig({})}</g>` };
+  } },
+  // 27 · "And you walk away across a field of grey flowers." – wide: long strides across the asphodel
+  { cue: 'And you walk', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.02], [d, 1000, 590, 1.06]]);
+    const t = l / d, x = lerp(700, 1320, t), y = lerp(930, 860, t), s = lerp(0.6, 0.46, t), wb = Math.abs(Math.sin(l / 4)) * -8;
+    return { cam, bg: T.underworld(f),
+      fg: `${G(x, y + wb, s, `<g filter="url(#shade)">${shadeAch({ pose: 'walk', expr: 'calm' })}</g><g opacity="0.3">${shadeAch({ pose: 'walk', expr: 'calm' })}</g>`)}
+      ${motes(f, 14, { col: '#fff3d6', seed: 61 })}` };
+  } },
+  // 28 · "Happy." – he looks back over his shoulder and smiles; warm light
+  { cue: 'Happy.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1000, 560, 1.4], [d, 1000, 550, 1.48]]);
+    const fig = G(1000, 1040, 1.15, shadeAch({ pose: 'walk', expr: 'happy', look: -1, headTilt: -8, breathe: bob(f), blink: blink(f, [R.SH[27].a + 26]) }));
+    return { cam, bg: T.underworld(f) + `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#hopeGlow)"/>${T.rays(f, 1200, 300, 14, '#fff3d6', 0.06, 0.001)}`,
+      fg: `<g filter="url(#shade)">${fig}</g><g opacity="0.55">${fig}</g>${motes(f, 18, { col: '#fff3d6', seed: 63 })}` };
+  } },
+  // 29 · "Almost three thousand years later," – a painted vase in a museum light
+  { cue: 'Almost three', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 520, 1.1], [d, 960, 500, 1.2]]);
+    return { cam, bg: `${T.sky('museum')}<path d="M700,-100 L1220,-100 L1460,1100 L460,1100 Z" fill="url(#spotlight)"/>
+      <rect x="700" y="820" width="520" height="300" fill="#3a2a24" stroke="${INK}" stroke-width="5"/><rect x="680" y="800" width="560" height="40" fill="#4a3a30" stroke="${INK}" stroke-width="5"/>${motes(f, 14, { col: '#ffe9c0', seed: 7 })}`,
+      fg: vase2(960, 560, 1.8) };
+  } },
+  // 30 · "we still know your name." – the name carved in old stone, the letters light up one by one
+  { cue: 'we still know', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.06], [d, 960, 540, 1.14]]);
+    const name = 'ΑΧΙΛΛΕΥΣ', a0 = R.at('name.', 1, -14);
+    let letters = '';
+    [...name].forEach((ch, i) => { const g = easeOut(win(f, a0 + i * 3, a0 + i * 3 + 8)), x = 960 + (i - 3.5) * 150;
+      letters += `<text x="${x}" y="610" ${SERIF} font-size="170" font-weight="700" text-anchor="middle" fill="#4a463e">${ch}</text>
+        <text x="${x}" y="606" ${SERIF} font-size="170" font-weight="700" text-anchor="middle" fill="#ffd36b" opacity="${g.toFixed(2)}" filter="url(#glowF)">${ch}</text>`; });
+    let cracks = '';
+    for (let i = 0; i < 6; i++) { const a = rnd(i + 3); cracks += `<path d="M${(300 + a * 1300).toFixed(0)},${(260 + a * 80).toFixed(0)} l${(30 - a * 60).toFixed(0)},${(40 + a * 30).toFixed(0)} l${(20 - a * 30).toFixed(0)},${(30 + a * 40).toFixed(0)}" fill="none" stroke="#5f5a52" stroke-width="4"/>`; }
+    return { cam, bg: `${T.sky('museum')}<path d="M260,250 Q960,220 1660,256 L1680,830 Q960,856 240,826 Z" fill="url(#stone)" stroke="${INK}" stroke-width="7"/>${cracks}
+      <circle cx="960" cy="540" r="600" fill="#ffd36b" opacity="${(0.12 * easeOut(win(f, a0, a0 + 30))).toFixed(2)}" filter="url(#soft)"/>`,
+      fg: `${letters}${motes(f, 14, { col: '#ffe9c0', seed: 9 })}` };
+  } },
+  // 31 · "Not bad for a baby hanging by one heel." – the baby again, now in warm light, giggling
+  { cue: 'Not bad for', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 430, 1.22], [d, 960, 420, 1.3]]);
+    const gig = Math.sin(l / 2.2) * (l > 20 ? 4 : 0);
+    let sparkle = '';
+    for (let i = 0; i < 8; i++) { const a = rnd(i + 12), t = ((l / 50) + a) % 1; sparkle += `<path transform="translate(${(600 + a * 720).toFixed(0)} ${(700 - t * 500).toFixed(0)}) scale(${(Math.sin(t * Math.PI) * 1.1).toFixed(2)})" d="M0,-14 L4,-4 L14,0 L4,4 L0,14 L-4,4 L-14,0 L-4,-4 Z" fill="#fffbe6"/>`; }
+    return { cam, bg: `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#warmGold)"/>${T.rays(f, 960, 380, 18, '#fff6d8', 0.12, 0.002)}${motes(f, 22, { col: '#fff6dc', seed: 15 })}`,
+      fg: `${G(960, 150 + gig, 1, K.babyHang({ expr: l > 14 ? 'happy' : 'smile', swing: Math.sin(l / 6) * 0.8 }), { rot: Math.sin(l / 12) * 3 })}${K2 ? '' : ''}
+      ${T.hangHand(960, 150 + gig)}${sparkle}` };
+  } },
+  // 32 · "You killed Troy's greatest prince," – the duel at the gate (memory)
+  { cue: "You killed Troy's", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.12], [d, 980, 590, 1.18]]);
+    return { cam, bg: `<g filter="url(#sepiaF)">${T.troyGate(f, { time: 'day' })}
+      ${G(1240, 930, 0.9, K2.hector({ inAchillesArmor: true, arms: 'spear', expr: 'determined' }))}
+      ${G(700 + easeOut(win(l, 0, 14)) * 60, 930, 0.92, achNew({ pose: 'lunge', expr: 'angry' }))}</g>`,
+      fg: `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#memEdge)"/>` };
+  } },
+  // 33 · "lost your best friend," – Patroclus, smiling (memory)
+  { cue: 'lost your best', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 480, 1.7], [d, 960, 470, 1.78]]);
+    return { cam, bg: `<g filter="url(#sepiaF)">${T.tentInside(f, { night: false })}${G(960, 1120, 1.45, K2.patroclus({ expr: 'smile', breathe: bob(f), blink: blink(f, [R.SH[32].a + 18]) }))}</g>`,
+      fg: `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#memEdge)"/>` };
+  } },
+  // 34 · "and still gave a father back his son." – the two pairs of hands (memory)
+  { cue: 'and still gave', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 980, 620, 1.0], [d, 990, 610, 1.06]]);
+    return { cam, bg: `<g filter="url(#sepiaF)">${T.sky('canvasNight')}<circle cx="960" cy="380" r="620" fill="url(#lamp)" opacity="0.8"/>${handsCloseUp()}</g>`,
+      fg: `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#memEdge)"/>${motes(f, 14, { col: '#fff3d6', seed: 33 })}` };
+  } },
+  // 35 · "So, tell me, would you still choose the short life?" – the two scrolls of chapter I, CHOSEN on the short one
+  { cue: 'So, tell me,', draw(f, l, d) {
+    const ch = R.at('choose', 1, 0);
+    const cam = S.camera(l, [[0, 960, 520, 1.0], [d, 1020, 500, 1.1]]);
+    const u = win(l, 2, 14), gl = easeOut(win(f, ch, ch + 30));
+    return { cam, bg: T.night(f, true) + `<circle cx="960" cy="470" r="700" fill="#ffe9b0" opacity="${(0.12 + 0.12 * gl).toFixed(2)}" filter="url(#soft)"/>`,
+      fg: `${scrollsI(f, l, { u, glow: gl })}${stampLit(f, ch, 1270, 470, 64, 'CHOSEN')}` };
+  } },
+  // 36 · end card (12 s, no voice): a parchment on a dark table – the question, the comment call, the baby in his basket,
+  //      an empty laurel frame for the next life, a bronze shield to subscribe, the originality line
+  { time: t => t.last + 1.0, draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 536, 1.02]]);
+    const at = k => easeOut(win(l, k, k + 14));
+    const q = at(4), c = at(16), b = at(28), lf = at(40), sh = at(52), fine = at(66);
+    const glint = ((l - 90) % 150) / 40;
+    const shield = `${K.shield(0, 0, 150)}<g transform="translate(0 6)">${PR.banner({ w: 330, h: 86, text: 'SUBSCRIBE', u: 1, col: '#9a2a24', colS: '#6a1a16', size: 40 })}</g>
+      ${glint > 0 && glint < 1 ? `<g clip-path="url(#shClip)"><path d="M${(-220 + glint * 440).toFixed(0)},-170 l-90,340" stroke="#fff8e0" stroke-width="40" opacity="0.45"/></g>` : ''}`;
+    return { cam, noVignette: false,
+      bg: `${T.parchmentTable(f, { x: 220, y: 100, w: 1480, h: 880, rot: -1 })}<defs><clipPath id="shClip"><circle cx="0" cy="0" r="150"/></clipPath></defs>`,
+      fg: `<g transform="rotate(-1 960 540)">
+        <g opacity="${q.toFixed(2)}" transform="translate(0 ${((1 - q) * 14).toFixed(1)})"><text x="960" y="248" ${SERIF} font-size="70" font-style="italic" font-weight="700" text-anchor="middle" fill="#3a2414">Would you still choose the short life?</text></g>
+        <g opacity="${c.toFixed(2)}" transform="translate(0 ${((1 - c) * 14).toFixed(1)})"><text x="960" y="330" ${SERIF} font-size="44" text-anchor="middle" fill="#5a3e26">Who should be born next? Tell me in the comments.</text>
+          <path d="M560,360 Q960,346 1360,360" fill="none" stroke="#b08a56" stroke-width="4" stroke-linecap="round"/></g>
+        <g opacity="${b.toFixed(2)}">${T.shadow(540, 820, 200, 0.2)}${G(540, 820, 1.0, basket(f, { expr: l % 120 < 60 ? 'happy' : 'smile', breathe: bob(f) * 0.6, blink: blink(f, [R.SH[35].a + 70, R.SH[35].a + 200]) }), { rot: Math.sin(l / 30) * 2 })}
+          <text x="540" y="890" ${SERIF} font-size="34" font-style="italic" text-anchor="middle" fill="#5a3e26">Achilles, age 0</text></g>
+        <g opacity="${lf.toFixed(2)}"><g transform="translate(960 610) rotate(${(Math.sin(l / 40) * 2).toFixed(2)}) scale(${(0.9 + 0.1 * lf).toFixed(3)})">${PR.laurel({ R: 150, gold: true })}
+          <ellipse cx="0" cy="-6" rx="104" ry="124" fill="#efe0bc" stroke="#a5865a" stroke-width="5" stroke-dasharray="16 12"/>
+          <text x="0" y="40" ${SERIF} font-size="140" font-weight="700" text-anchor="middle" fill="#c9a46c">?</text></g>
+          <text x="960" y="890" ${SERIF} font-size="38" font-style="italic" text-anchor="middle" fill="#5a3e26">the next life</text></g>
+        <g opacity="${sh.toFixed(2)}"><g transform="translate(1380 640) scale(${(0.9 + 0.1 * sh).toFixed(3)})">${shield}</g></g>
+        <text x="960" y="948" ${SERIF} font-size="27" text-anchor="middle" fill="#6a4e32" opacity="${fine.toFixed(2)}">An original retelling. All illustrations, animation and music are original.</text>
+      </g>` };
+  } },
+] });
+</script>
+</body>
+</html>

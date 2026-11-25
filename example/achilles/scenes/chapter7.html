@@ -1,0 +1,376 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – chapter VII "Hector"</title>
+<style>html, body { margin: 0; padding: 0; background: #000; overflow: hidden; } #stage { width: 1920px; height: 1080px; } svg { display: block; }</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/cast2.js"></script>
+<script src="../lib/props.js"></script>
+<script src="../lib/scene.js"></script>
+<script src="../lib/sets.js"></script>
+<script src="../lib/runner.js"></script>
+<script>
+// Chapter VII "Hector" (EPISODE.md, row 9). No jokes, no gag devices: the duel, the chase, the father on the wall.
+// Achilles wears the NEW armour (brighter bronze + the world shield), Hector wears his OLD one (wave shield).
+const K = window.CAST, K2 = window.CAST2, PR = window.PROPS, S = window.SCENE, T = window.SETS;
+const { C, INK } = K;
+const { ease, easeOut, win, lerp, popLabel, arrow, motes, blink, clamp, rnd } = S;
+const TEXT = `In the morning, you cut through the Trojans like a storm. Even the river rises to stop you. It can't. At the gate, Hector waits for you. Alone. Then he sees your face, and he runs. Three times around the walls of Troy. They call you swift-footed for a reason. Finally, he turns to fight. He's wearing your armor. And you know that armor better than anyone. One gap. At the neck. His father watches from the wall. You tie Hector to your chariot, and drag him through the dust. You don't feel better.`;
+const bob = (f, k = 0) => Math.sin((f + k * 13) / 14) * 3.5;
+const G = (x, y, s, inner, o = {}) => `<g transform="translate(${(+x).toFixed(1)} ${(+y).toFixed(1)})${o.rot ? ` rotate(${o.rot.toFixed(2)})` : ''} scale(${s})"${o.filter ? ` filter="url(#${o.filter})"` : ''}${o.op !== undefined ? ` opacity="${o.op.toFixed(2)}"` : ''}>${inner}</g>`;
+const grad = T.grad;
+
+// ---------- Achilles in the new armour: brighter bronze, the world shield on his arm ----------
+const NEW = { metal: '#efc15a', metalS: '#c28c2c', metalL: '#fff0b8', crest: '#c8302a' };
+const POSE_H = { stand: [-196, 0], walk: [-192, 0], run: [-184, 12], kneel: [-120, 0], sit: [-150, 0], lunge: [-160, 8], scream: [-196, 0] };
+function achNew(o = {}) {
+  const pose = o.pose || 'stand', b = o.breathe || 0;
+  let s = K2.achilles({ cape: true, ...o, shieldOn: false, P: { ...NEW, ...(o.P || {}) } });
+  if (o.shield === false) return s;
+  const [hy, lean] = POSE_H[pose];
+  const sp = pose === 'run' ? [-118, -312 + b, 90] : pose === 'lunge' ? [-124, -330 + b, 90] : [-112, -300 + b, 94];
+  let w = `<g transform="translate(0 ${hy + 196}) rotate(${lean} 0 -196)"><g transform="translate(${sp[0]} ${sp[1]})">${PR.worldShield({ R: sp[2], rot: o.shieldRot || 0, glow: o.glow || 0 })}</g></g>`;
+  if (o.dir === -1) w = `<g transform="scale(-1 1)">${w}</g>`;
+  return s + w;
+}
+const hector = (o = {}) => K2.hector({ inAchillesArmor: true, expr: 'stern', ...o });
+
+// ---------- sets ----------
+function defs() {
+  return [
+    grad('storm', [[0, '#1c1a26'], [0.45, '#3e3646'], [0.75, '#8a6458'], [1, '#c98f6a']]),
+    grad('stormDark', [[0, '#0f0e16'], [0.6, '#2a2636'], [1, '#4a3a44']]),
+    grad('river', [[0, '#26303e'], [0.55, '#55707a'], [1, '#a5a58a']]),
+    grad('riverW', [[0, '#3f7f8c'], [1, '#1f4552']]),
+    grad('blue', [[0, '#0d1424'], [1, '#1f3150']]),
+    grad('plainTop', [[0, '#b8925e'], [1, '#9a7a4c']]),
+    grad('sunset', [[0, '#2a1830'], [0.35, '#7a3550'], [0.6, '#e0704a'], [0.78, '#f7b25a'], [1, '#f7c87a']]),
+    grad('dustsky', [[0, '#5a4a52'], [0.55, '#c98f6a'], [1, '#f0c890']]),
+    `<radialGradient id="coolLight" cx="0.5" cy="0.42" r="0.6"><stop offset="0" stop-color="#6f97c8" stop-opacity="0.55"/><stop offset="1" stop-color="#0d1424" stop-opacity="0"/></radialGradient>`,
+    `<radialGradient id="gapGlow"><stop offset="0" stop-color="#fff6d8" stop-opacity="1"/><stop offset="0.35" stop-color="#ffd36b" stop-opacity="0.7"/><stop offset="1" stop-color="#ffb84a" stop-opacity="0"/></radialGradient>`,
+  ].join('');
+}
+// dark rolling storm clouds over the top of the frame
+function stormClouds(f, y = 120, col = '#2a2533', op = 0.9, seed = 0) {
+  let s = '';
+  for (let i = 0; i < 9; i++) { const a = rnd(i + seed + 300), x = ((a * 2400 + f * (1.2 + a)) % 2600) - 340;
+    s += `<g opacity="${op}"><ellipse cx="${x.toFixed(0)}" cy="${(y + a * 120).toFixed(0)}" rx="${(260 + a * 160).toFixed(0)}" ry="${(70 + a * 40).toFixed(0)}" fill="${col}"/>
+      <ellipse cx="${(x + 120).toFixed(0)}" cy="${(y - 30 + a * 120).toFixed(0)}" rx="${(160 + a * 90).toFixed(0)}" ry="${(70 + a * 30).toFixed(0)}" fill="${col}"/></g>`; }
+  return s;
+}
+function bolt(x, y, h, t) {   // a lightning bolt that flashes (t 0..1 = life)
+  if (t <= 0 || t >= 1) return '';
+  const op = t < 0.15 ? 1 : 1 - (t - 0.15) / 0.85;
+  const d = `M${x},${y} L${x - 40},${y + h * 0.3} L${x + 20},${y + h * 0.32} L${x - 50},${y + h * 0.65} L${x + 10},${y + h * 0.66} L${x - 70},${y + h}`;
+  return `<g opacity="${op.toFixed(2)}"><path d="${d}" fill="none" stroke="#e8e4ff" stroke-width="26" opacity="0.35" filter="url(#blur4)"/><path d="${d}" fill="none" stroke="#fffdf0" stroke-width="9" stroke-linejoin="round"/></g>`;
+}
+function windLines(f, n = 10, col = '#f6e6c8', op = 0.5, seed = 0, speed = 46) {
+  let s = '';
+  for (let i = 0; i < n; i++) { const a = rnd(i + seed), b = rnd(i * 3.3 + seed), L = 120 + a * 220, x = 2200 - ((a * 2600 + f * speed * (0.7 + b * 0.6)) % 2800), y = 100 + b * 880;
+    s += `<path d="M${x.toFixed(0)},${y.toFixed(0)} l${L.toFixed(0)},${(-L * 0.06).toFixed(0)}" stroke="${col}" stroke-width="${(3 + b * 4).toFixed(1)}" stroke-linecap="round" opacity="${(op * (0.4 + a * 0.6)).toFixed(2)}"/>`; }
+  return s;
+}
+function puff(x, y, t, w = 160, r = 34, col = '#e8cfa8', seed = 0) { return t > 0 && t < 1 ? `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)})">${PR.dustCloud({ t, w, r, col, seed })}</g>` : ''; }
+// the battlefield in the storm, scrolling with the run (sx = scroll in px)
+function stormField(f, sx) {
+  let spears = '';
+  for (let i = 0; i < 14; i++) { const a = rnd(i + 410), x = ((a * 2600 - sx) % 2600 + 2600) % 2600 - 300;
+    spears += `<path d="M${x.toFixed(0)},${(930 + a * 120).toFixed(0)} l${(40 - a * 80).toFixed(0)},-${(120 + a * 60).toFixed(0)}" stroke="#2e2020" stroke-width="7" stroke-linecap="round"/>`; }
+  let stones = '';
+  for (let i = 0; i < 10; i++) { const a = rnd(i + 470), x = ((a * 2600 - sx * 1.25) % 2600 + 2600) % 2600 - 300;
+    stones += `<ellipse cx="${x.toFixed(0)}" cy="${(1010 + a * 50).toFixed(0)}" rx="${(30 + a * 40).toFixed(0)}" ry="${(10 + a * 8).toFixed(0)}" fill="#4a2e2a"/>`; }
+  return `${T.sky('storm')}${stormClouds(f, 110, '#231f2c', 0.95, 2)}${stormClouds(f * 0.7, 300, '#3a3040', 0.6, 9)}
+    <circle cx="1450" cy="640" r="380" fill="#f6c890" opacity="0.28" filter="url(#soft)"/>
+    ${T.troySkyline(600, 0.42, '#4a3040')}
+    <ellipse cx="1350" cy="660" rx="1000" ry="200" fill="#f4cf98" opacity="0.5" filter="url(#soft)"/>
+    ${T.smoke(f, 300 - (sx * 0.2) % 600, 620, 1.1, '#3a2a34', 1, 0.45)}${T.smoke(f, 1650 - (sx * 0.2) % 600, 640, 0.9, '#3a2a34', 4, 0.4)}
+    <path d="M-100,660 Q500,620 1000,660 Q1500,700 2020,650 L2020,1100 L-100,1100 Z" fill="#8a5e48"/>
+    <path d="M-100,800 Q700,740 1300,810 Q1700,840 2020,790 L2020,1100 L-100,1100 Z" fill="#6a4434"/>
+    ${spears}${stones}`;
+}
+// the river god rises: a wave with a face (base at the bottom of the frame, crest at y = top)
+function riverWave(f, top, o = {}) {
+  const w = Math.sin(f / 9) * 14, roar = o.roar || 0;
+  const body = `M40,1120 C90,${top + 520} 380,${top + 60} 820,${top + w}
+    C1130,${top - 30} 1320,${top + 110} 1300,${top + 270} C1250,${top + 210} 1170,${top + 170} 1110,${top + 240}
+    C1060,${top + 330} 1150,${top + 700} 1380,1120 Z`;
+  let s = `<path d="${body}" fill="#3f8796" stroke="${INK}" stroke-width="7" stroke-linejoin="round"/>`;
+  s += `<path d="M180,1120 C220,${top + 560} 460,${top + 170} 820,${top + 110} C1000,${top + 90} 1110,${top + 150} 1120,${top + 230} C1070,${top + 330} 1120,${top + 700} 1290,1120 Z" fill="#326f80"/>`;
+  // streaks of current on the body
+  for (let i = 0; i < 7; i++) { const yy = top + 260 + i * 110, x0 = 260 + i * 40 + Math.sin(f / 7 + i) * 20;
+    s += `<path d="M${x0},${yy} q120,-40 240,-10" fill="none" stroke="#7fc0cc" stroke-width="7" stroke-linecap="round" opacity="0.55"/>`; }
+  // one continuous foam crest along the top and the curling lip, scalloped underneath
+  const crest = `M360,${top + 170} C540,${top + 50} 690,${top + w * 0.5} 820,${top + w} C1130,${top - 30} 1320,${top + 110} 1300,${top + 270}`;
+  s += `<path d="${crest}" fill="none" stroke="${INK}" stroke-width="66" stroke-linecap="round"/><path d="${crest}" fill="none" stroke="#eef9f8" stroke-width="54" stroke-linecap="round"/>`;
+  s += `<path d="${crest}" fill="none" stroke="#bfe6ea" stroke-width="10" stroke-linecap="round" transform="translate(0 16)" opacity="0.8"/>`;
+  // spray flying off the crest
+  for (let i = 0; i < 14; i++) { const a = rnd(i + 30), b = rnd(i + 60), t = ((f / 22) + a) % 1, x = 760 + a * 560 + t * (120 + b * 160), y = top - 10 - t * (100 + b * 140) + t * t * 200;
+    s += `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${(6 + b * 10).toFixed(0)}" fill="#e8fbf8" opacity="${(1 - t).toFixed(2)}"/>`; }
+  // the face: narrow angry eyes under heavy brows, a roaring mouth with foam teeth
+  const ey = top + 340;
+  for (const [x, sd] of [[690, -1], [930, 1]]) {
+    // sd = which side of the face; the inner end of each brow comes down towards the middle (angry)
+    const inX = x - sd * 74, outX = x + sd * 70;
+    s += `<ellipse cx="${x}" cy="${ey}" rx="60" ry="40" fill="#eef9f8" stroke="${INK}" stroke-width="6"/>
+      <path d="M${outX + sd * 10},${ey - 70} L${inX - sd * 6},${ey - 8} L${inX - sd * 6},${ey - 90} Z" fill="#3f8796"/>
+      <circle cx="${x + 16}" cy="${ey + 10}" r="17" fill="${INK}"/><circle cx="${x + 10}" cy="${ey + 4}" r="5" fill="#fff"/>
+      <path d="M${outX + sd * 8},${ey - 66} L${inX - sd * 4},${ey - 12}" stroke="${INK}" stroke-width="30" stroke-linecap="round"/>`;
+  }
+  const r = 0.45 + roar * 0.55, mh = 60 + r * 120, mw = 120 + r * 60, my = top + 480;
+  s += `<path d="M${810 - mw},${my + 10} Q810,${my - 26} ${810 + mw},${my + 10} Q${810 + mw * 0.75},${my + mh} 810,${my + mh} Q${810 - mw * 0.75},${my + mh} ${810 - mw},${my + 10} Z" fill="#0e2228" stroke="${INK}" stroke-width="7"/>`;
+  for (let i = 0; i < 6; i++) { const x = 810 - mw * 0.72 + i * mw * 0.288; s += `<path d="M${(x - 20).toFixed(0)},${(my + 2 - Math.abs(i - 2.5) * 4).toFixed(0)} L${x.toFixed(0)},${(my + 30).toFixed(0)} L${(x + 20).toFixed(0)},${(my + 2 - Math.abs(i - 2.5) * 4).toFixed(0)} Z" fill="#eef9f8" stroke="${INK}" stroke-width="3"/>`; }
+  return s;
+}
+function riverBank(f, o = {}) {
+  let reeds = '';
+  for (let i = 0; i < 16; i++) { const a = rnd(i + 560), x = 1300 + a * 700, sw = Math.sin(f / 10 + i) * 6;
+    reeds += `<path d="M${x.toFixed(0)},1000 q${(sw).toFixed(0)},-60 ${(sw * 2 + 8).toFixed(0)},-${(110 + a * 70).toFixed(0)}" fill="none" stroke="#3e4a30" stroke-width="6" stroke-linecap="round"/>`; }
+  return `${T.sky('river')}${stormClouds(f, 90, '#2a2f3c', 0.85, 21)}
+    <path d="M-100,700 Q400,660 900,690 Q1400,720 2020,680 L2020,800 L-100,800 Z" fill="#4a5a50"/>
+    <rect x="-200" y="760" width="2320" height="400" fill="url(#riverW)"/>${T.seaBand(770, 300, 'none', '#9fd2d8', f * 3, 71)}
+    <path d="M1180,1100 Q1260,900 1460,880 Q1700,860 2020,900 L2020,1100 Z" fill="#5a4636" stroke="${INK}" stroke-width="5"/>${reeds}`;
+}
+// Troy from above: plain, river, the ring of walls with towers, the city inside, the dusty track round the walls
+function troyTop(f, cx, cy, R) {
+  let s = `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#plainTop)"/>`;
+  for (let i = 0; i < 16; i++) { const a = rnd(i + 700), b = rnd(i + 720);
+    s += `<rect x="${(a * 2000 - 100).toFixed(0)}" y="${(b * 1200 - 100).toFixed(0)}" width="${(140 + a * 160).toFixed(0)}" height="${(90 + b * 120).toFixed(0)}" rx="8" fill="${i % 3 ? '#a6955a' : '#8f8a4a'}" opacity="0.55" transform="rotate(${(a * 40 - 20).toFixed(0)} ${(a * 2000).toFixed(0)} ${(b * 1200).toFixed(0)})"/>`; }
+  s += `<path d="M-120,180 C220,260 160,700 420,1200" fill="none" stroke="${INK}" stroke-width="96"/><path d="M-120,180 C220,260 160,700 420,1200" fill="none" stroke="#3f7f9a" stroke-width="84"/>
+    <path d="M-120,180 C220,260 160,700 420,1200" fill="none" stroke="#7fbcd0" stroke-width="6" stroke-dasharray="30 60" stroke-dashoffset="${(-f * 3).toFixed(0)}" opacity="0.7"/>`;
+  s += `<circle cx="${cx}" cy="${cy}" r="${R + 80}" fill="none" stroke="#d9b47c" stroke-width="72"/><circle cx="${cx}" cy="${cy}" r="${R + 80}" fill="none" stroke="#c49a62" stroke-width="3" stroke-dasharray="10 22" opacity="0.8"/>`;
+  s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="#9a7a5a"/>`;
+  // houses in rings, the citadel in the middle
+  for (let ring = 0; ring < 4; ring++) { const rr = R * (0.28 + ring * 0.17), k = 8 + ring * 6;
+    for (let i = 0; i < k; i++) { const a = i / k * Math.PI * 2 + ring * 0.3, x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr, z = 26 + rnd(i + ring * 20) * 14;
+      s += `<rect x="${(x - z / 2).toFixed(0)}" y="${(y - z / 2).toFixed(0)}" width="${z.toFixed(0)}" height="${(z * 0.8).toFixed(0)}" fill="${(i + ring) % 3 ? '#c46a40' : '#e3d2b0'}" stroke="${INK}" stroke-width="3" transform="rotate(${(a * 57.3).toFixed(0)} ${x.toFixed(0)} ${y.toFixed(0)})"/>`; } }
+  s += `<rect x="${cx - 60}" y="${cy - 40}" width="120" height="80" fill="#efe2c4" stroke="${INK}" stroke-width="4"/><path d="M${cx - 60},${cy} L${cx + 60},${cy}" stroke="#c9a46c" stroke-width="6"/>`;
+  // the wall ring and its towers
+  s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${INK}" stroke-width="54"/><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#cdb08a" stroke-width="44"/>
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#a8855e" stroke-width="4" stroke-dasharray="14 18"/>`;
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+    s += `<rect x="${(x - 30).toFixed(0)}" y="${(y - 30).toFixed(0)}" width="60" height="60" fill="#d9bf96" stroke="${INK}" stroke-width="5" transform="rotate(${(a * 57.3).toFixed(0)} ${x.toFixed(0)} ${y.toFixed(0)})"/>`; }
+  // the gate: a gap with two towers on the west side
+  return s;
+}
+// a runner seen from above: helmet + shield + a dust trail along the track
+function topRunner(cx, cy, r, a, col, crest, trail, glow) {
+  let s = '';
+  for (let i = 8; i >= 1; i--) { const b = a - i * 0.07; s += `<circle cx="${(cx + Math.cos(b) * r).toFixed(1)}" cy="${(cy + Math.sin(b) * r).toFixed(1)}" r="${(22 + i * 4).toFixed(0)}" fill="#fbecc8" opacity="${(trail * (1 - i / 9) * 0.75).toFixed(2)}"/>`; }
+  const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+  if (glow) s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="70" fill="#fff0b0" opacity="0.7" filter="url(#soft)"/>`;
+  s += `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(a * 57.3 + 90).toFixed(1)})"><circle r="33" fill="${col}" stroke="${INK}" stroke-width="6"/><path d="M0,-28 L0,28" stroke="${crest}" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="-36" cy="6" r="19" fill="${col}" stroke="${INK}" stroke-width="5"/></g>`;
+  return s;
+}
+// the stone wall of Troy seen from the side, scrolling (o = scroll offset)
+function wallSide(f, o, y0 = 220) {
+  let s = `${T.sky('dustsky')}<rect x="-200" y="${y0}" width="2320" height="${880 - y0}" fill="#c9a77e" stroke="${INK}" stroke-width="6"/>`;
+  for (let x = -200 - (o % 110); x < 2120; x += 110) s += `<rect x="${x.toFixed(0)}" y="${y0 - 44}" width="66" height="48" fill="#c9a77e" stroke="${INK}" stroke-width="5"/>`;
+  for (let r = 0; r < 7; r++) for (let x = -200 - (o % 140) + (r % 2) * 70; x < 2120; x += 140) s += `<path d="M${x.toFixed(0)},${y0 + 40 + r * 90} l0,90 M${(x - 70).toFixed(0)},${y0 + 130 + r * 90} l140,0" stroke="#a8855e" stroke-width="4"/>`;
+  s += `<rect x="-200" y="860" width="2320" height="300" fill="#c9a06a"/><rect x="-200" y="860" width="2320" height="12" fill="#000" opacity="0.15"/>`;
+  for (let i = 0; i < 12; i++) { const a = rnd(i + 600), x = ((a * 2600 - o * 1.3) % 2600 + 2600) % 2600 - 300; s += `<ellipse cx="${x.toFixed(0)}" cy="${(930 + a * 120).toFixed(0)}" rx="${(20 + a * 30).toFixed(0)}" ry="8" fill="#a8784e"/>`; }
+  return s;
+}
+// the sunset plain for the chariot (silhouettes against a big low sun)
+function sunsetPlain(f, sunX = 960, sunY = 720, sunR = 300) {
+  return `${T.sky('sunset')}<circle cx="${sunX}" cy="${sunY}" r="${sunR * 1.7}" fill="#ffb26b" opacity="0.25"/><circle cx="${sunX}" cy="${sunY}" r="${sunR}" fill="#ffe2a0"/>
+    ${T.cloud(300, 260, 1.4, '#c86a5a', f, 0.2, 0.55)}${T.cloud(1500, 200, 1.1, '#c86a5a', f, 0.15, 0.5)}
+    ${T.troySkyline(640, 0.5, '#2a1a26')}
+    <rect x="-200" y="840" width="2320" height="400" fill="#1e1219"/><path d="M-200,842 Q960,826 2120,846" fill="none" stroke="#5a2a24" stroke-width="6"/>
+    ${motes(f, 26, { col: '#ffb070', seed: 25 })}`;
+}
+
+// ---------- shots ----------
+const R = RUN({ TEXT, OFF: 1.6, card: ['VII', 'Hector'], tail: 1.6, defs, SHOTS: [
+  // 1 · "In the morning, you cut through the Trojans" – he charges through, Trojans thrown aside as silhouettes
+  { cue: 'In the morning,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 600, 1.08], [d, 940, 580, 1.13]]);
+    const sx = l * 24, run = Math.abs(Math.sin(l / 3.2)) * -14;
+    let foes = '';
+    [[1230, 0, 10], [1500, 1, 22], [1760, 2, 34], [2020, 0, 46]].forEach(([x0, k, th], i) => {
+      const x = x0 - l * 22, dt = l - th;
+      if (dt < 0) foes += G(x, 930, 0.74, K2.soldier({ side: 'trojan', k, pose: i % 2 ? 'lunge' : 'stand', dir: -1, expr: 'shocked' }), { filter: 'sil' });
+      else { const fx = x + dt * 20, fy = 930 - dt * 30 + dt * dt * 1.6, rot = dt * 13;
+        if (fy < 1300) foes += G(fx, fy, 0.74, K2.soldier({ side: 'trojan', k, pose: 'stand', expr: 'ko' }), { filter: 'sil', rot });
+        foes += puff(x0 - th * 22, 940, dt / 22, 300, 52, '#d8b48a', i); }
+    });
+    return { cam, bg: stormField(f, sx), fg: `${foes}
+      ${puff(760, 945, (l % 9) / 9, 140, 24, '#e8cfa8', l % 4)}${T.shadow(760, 935, 120, 0.3)}
+      ${G(760, 930 + run, 1.0, achNew({ pose: 'run', expr: 'determined', breathe: 0 }))}
+      ${windLines(f, 12, '#fbe8c8', 0.55, 3)}${motes(f, 22, { col: '#ffe2b0', seed: 31 })}` };
+  } },
+  // 2 · "like a storm." – low angle, black clouds, a bolt on "storm", the lunge
+  { cue: 'like a storm.', draw(f, l, d) {
+    const hit = R.at('storm.', 1, 0), bt = (f - hit) / 14;
+    const shake = f >= hit && f < hit + 6 ? Math.sin(l * 3.3) * 8 : 0;
+    const cam = S.camera(l, [[0, 960, 560, 1.12], [d, 960, 540, 1.2]]).replace('translate(960 540)', `translate(${960 + shake} 540)`);
+    const flash = f >= hit ? Math.max(0, 1 - (f - hit) / 8) : 0;
+    return { cam, bg: `${T.sky('stormDark')}${stormClouds(f * 2, 120, '#1a1722', 1, 5)}${stormClouds(f * 1.4, 330, '#2c2634', 0.85, 13)}
+      ${bolt(1380, -20, 620, bt)}${bolt(420, 40, 420, (f - hit - 4) / 12)}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="#e8e4ff" opacity="${(flash * 0.35).toFixed(2)}"/>
+      <path d="M-100,880 Q960,840 2020,880 L2020,1100 L-100,1100 Z" fill="#2a1c1e"/>`,
+      fg: `${windLines(f, 16, '#d8d4e8', 0.5, 7, 60)}
+      ${G(960, 960, 1.18, achNew({ pose: 'lunge', expr: f >= hit - 4 ? 'angry' : 'determined', breathe: bob(f) }))}
+      ${puff(780, 975, (l % 12) / 12, 220, 30, '#6a5a60', 2)}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="#fff" opacity="${(flash * 0.25).toFixed(2)}"/>
+      ${motes(f, 18, { col: '#d8d4e8', seed: 37 })}` };
+  } },
+  // 3 · "Even the river rises to stop you." – the river rears up as a wave with a face
+  { cue: 'Even the river', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 980, 620, 1.04], [d, 960, 560, 1.1]]);
+    const top = lerp(1150, 150, easeOut(win(l, 0, 34))), roar = easeOut(win(f, R.at('stop', 1, -2), R.at('stop', 1, 6)));
+    return { cam, bg: riverBank(f), fg: `${riverWave(f, top, { roar })}
+      ${T.seaBand(980, 120, 'url(#riverW)', '#cfeef2', f * 3, 77)}
+      ${G(1560, 1000, 0.66, achNew({ expr: 'determined', look: -1, breathe: bob(f), blink: blink(f, [R.SH[3].a + 30]) }))}
+      ${windLines(f, 8, '#e8f6f8', 0.4, 11)}` };
+  } },
+  // 4 · "It can't." – the wave crashes, he walks out of the mist
+  { cue: "It can't.", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.06], [d, 960, 580, 1.12]]);
+    const fall = easeOut(win(l, 0, 7)), mist = l < 8 ? win(l, 0, 8) : 1 - win(l, 8, 30);
+    const walk = win(l, 6, d), sc = lerp(0.8, 1.08, walk), wb = Math.abs(Math.sin(l / 3.4)) * -8;
+    let drops = '';
+    for (let i = 0; i < 18; i++) { const a = rnd(i + 210), b = rnd(i * 7.3 + 5), t = win(l, 3 + b * 4, 24 + b * 8), ang = Math.PI * (0.12 + 0.76 * a), v = 500 + 700 * b;
+      const x = 960 + Math.cos(ang) * v * t, y = 820 - Math.sin(ang) * v * 1.1 * t + 900 * t * t;
+      if (t > 0 && t < 1) drops += `<ellipse cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="${(9 + a * 9).toFixed(0)}" ry="${(13 + a * 9).toFixed(0)}" fill="#e8fbf8" stroke="${INK}" stroke-width="3" opacity="${(1 - t).toFixed(2)}"/>`; }
+    let fog = '';
+    for (let i = 0; i < 9; i++) { const a = rnd(i + 250); fog += `<ellipse cx="${(200 + a * 1500 + Math.sin(f / 30 + i) * 60).toFixed(0)}" cy="${(560 + a * 400).toFixed(0)}" rx="${(380 + a * 260).toFixed(0)}" ry="${(130 + a * 90).toFixed(0)}" fill="#eef6f6" opacity="${(0.55 * mist * (0.6 + a * 0.4)).toFixed(2)}" filter="url(#soft)"/>`; }
+    return { cam, bg: riverBank(f) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#1c2c34" opacity="0.25"/>`,
+      fg: `${l < 9 ? `<g opacity="${(1 - win(l, 4, 9)).toFixed(2)}" transform="translate(0 ${(fall * 700).toFixed(0)})">${riverWave(f, 150, { roar: 1 })}</g>` : ''}
+      ${T.shadow(980, 1040 + wb, 110 * sc / 0.8, 0.25)}${G(980, 1040 + wb, sc, achNew({ pose: 'walk', expr: 'determined', breathe: 0, blink: blink(f, [R.SH[4].a + 22]) }), { op: clamp(win(l, 4, 12)) })}
+      ${fog}${drops}<rect x="-200" y="-200" width="2320" height="1480" fill="#f4fbfb" opacity="${(0.75 * clamp(1 - Math.abs(l - 7) / 5)).toFixed(2)}"/>` };
+  } },
+  // 5 · "At the gate, Hector waits for you." – Hector alone before the Scaean gate, in YOUR old armour
+  { cue: 'At the gate,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.12], [d, 960, 580, 1.2]]);
+    const lab = R.at('Hector');
+    return { cam, bg: T.troyGate(f, { time: 'day' }),
+      fg: `${T.shadow(960, 900, 120, 0.28)}${G(960, 900, 0.88, hector({ breathe: bob(f), blink: blink(f, [lab + 16]), expr: 'determined' }))}
+      ${windLines(f, 6, '#fff3d6', 0.35, 15, 20)}
+      ${popLabel(f, lab, 1360, 430, 74, 'HECTOR')}` };
+  } },
+  // 6 · "Alone." – pulled far back: a huge closed gate, one small man, the wind
+  { cue: 'Alone.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 580, 1.12], [d, 960, 560, 1.05]]);
+    let dust = '';
+    for (let i = 0; i < 6; i++) { const a = rnd(i + 330), x = ((a * 2400 + l * 14) % 2400) - 240; dust += `<ellipse cx="${x.toFixed(0)}" cy="${(900 + a * 120).toFixed(0)}" rx="${(200 + a * 160).toFixed(0)}" ry="${(18 + a * 14).toFixed(0)}" fill="#f2dcb4" opacity="${(0.25 + a * 0.2).toFixed(2)}" filter="url(#soft)"/>`; }
+    return { cam, bg: T.troyGate(f, { time: 'dawn' }) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#2a2a4a" opacity="0.3"/>
+      <path d="M860,860 L1060,860 L1180,1100 L740,1100 Z" fill="#ffe2a8" opacity="0.18"/>`,
+      fg: `<ellipse cx="1060" cy="945" rx="130" ry="9" fill="#000" opacity="0.3"/>${G(960, 940, 0.4, hector({ breathe: bob(f) }))}${dust}` };
+  } },
+  // 7 · "Then he sees your face," – the sun behind him, the new shield blazing, his eyes
+  { cue: 'Then he sees', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 500, 2.0], [d, 960, 490, 2.12]]);
+    const glint = win(f, R.at('face,', 1, -4), R.at('face,', 1, 6));
+    return { cam, bg: `${T.sky('dustsky')}<circle cx="960" cy="420" r="360" fill="#fff0c0" opacity="0.5" filter="url(#soft)"/><circle cx="960" cy="420" r="200" fill="#fff6d8" opacity="0.7"/>
+      ${T.rays(f, 960, 420, 18, '#fff3c4', 0.12, 0.002)}<rect x="-200" y="860" width="2320" height="400" fill="#b98a5e"/>`,
+      fg: `${G(960, 1180, 1.45, achNew({ expr: 'determined', breathe: bob(f), blink: blink(f, [R.SH[6].a + 8]), glow: 0.6 }))}
+      ${glint > 0 && glint < 1 ? `<path transform="translate(1004 504) scale(${(Math.sin(glint * Math.PI) * 1.2).toFixed(2)})" d="M0,-26 L6,-6 L26,0 L6,6 L0,26 L-6,6 L-26,0 L-6,-6 Z" fill="#fffbe6" stroke="${INK}" stroke-width="2"/>` : ''}
+      ${motes(f, 18, { col: '#fff3d6', seed: 41 })}` };
+  } },
+  // 8 · "and he runs." – Hector's face falls, he turns and runs
+  { cue: 'and he runs.', draw(f, l, d) {
+    const go = R.at('runs.', 1, -3), ran = f >= go;
+    const cam = S.camera(l, [[0, 960, 520, 1.5], [d, 900, 540, 1.4]]);
+    const dx = ran ? -Math.pow(f - go, 1.6) * 6 : 0;
+    return { cam, bg: T.troyGate(f, { time: 'day' }) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#3a2a3a" opacity="0.3"/>`,
+      fg: `${ran ? puff(960, 900, (f - go) / 18, 260, 40, '#e8cfa8', 3) : ''}
+      ${G(960 + dx, 900, 0.95, ran ? hector({ pose: 'run', dir: -1, expr: 'shocked' }) : hector({ expr: 'shocked', breathe: bob(f) }))}
+      ${ran ? `<g opacity="0.7">${[0, 1, 2].map(i => `<path d="M${(1080 + dx + i * 30).toFixed(0)},${560 + i * 120} l${150 + i * 40},0" stroke="#fff" stroke-width="10" stroke-linecap="round"/>`).join('')}</g>` : ''}` };
+  } },
+  // 9 · "Three times around the walls of Troy." – from above: the ring of walls, two runners, LAP 1 · 2 · 3
+  { cue: 'Three times', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 560, 1.06]]);
+    const cx = 980, cy = 590, Rw = 330, Rt = Rw + 80;
+    const p = l / d, ah = -2.2 + p * Math.PI * 2 * 3, aa = ah - 0.55 + p * 0.25;
+    const lap1 = R.SH[8].a + 3, lap2 = R.SH[8].a + Math.round(d / 3), lap3 = R.SH[8].a + Math.round(d * 2 / 3);
+    return { cam, bg: troyTop(f, cx, cy, Rw),
+      fg: `${topRunner(cx, cy, Rt, ah, C.teal, '#e2433a', 1, false)}${topRunner(cx, cy, Rt, aa, '#ffd24a', '#c8302a', 1, true)}
+      ${popLabel(f, lap1, 700, 140, 76, 'LAP 1', { anchor: 'start' })}${popLabel(f, lap2, 945, 140, 76, '·', { anchor: 'start' })}${popLabel(f, lap2, 985, 140, 76, '2', { anchor: 'start' })}${popLabel(f, lap3, 1050, 140, 76, '·', { anchor: 'start' })}${popLabel(f, lap3, 1090, 140, 76, '3', { anchor: 'start' })}` };
+  } },
+  // 10 · "They call you swift-footed for a reason." – side by side along the wall, he closes in
+  { cue: 'They call you', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 620, 1.12], [d, 1000, 610, 1.16]]);
+    const o = l * 46, gain = easeOut(win(l, 0, d)), ab = Math.abs(Math.sin(l / 2.6)) * -16, hb = Math.abs(Math.sin(l / 2.6 + 1.3)) * -14;
+    return { cam, bg: wallSide(f, o),
+      fg: `${PR.speedLines({ w: 2000, h: 700, n: 9, f, col: '#fff6dc' }).replace(/<path/g, '<path transform="translate(-40 160)"')}
+      ${puff(1260, 905, (l % 8) / 8, 140, 26, '#e8cfa8', 1)}${G(1330, 900 + hb, 0.92, hector({ pose: 'run', expr: 'worried' }))}
+      ${puff(lerp(480, 820, gain) - 80, 905, ((l + 4) % 8) / 8, 140, 26, '#e8cfa8', 2)}${G(lerp(480, 820, gain), 900 + ab, 0.95, achNew({ pose: 'run', expr: 'determined' }))}` };
+  } },
+  // 11 · "Finally, he turns to fight." – Hector stops and faces you, spear up; your shoulder in the foreground
+  { cue: 'Finally,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1000, 560, 1.1], [d, 1040, 540, 1.18]]);
+    const turn = R.at('turns', 1, -2), faced = f >= turn;
+    return { cam, bg: T.battlefield(f, { time: 'day' }) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#5a2a2a" opacity="0.18"/>`,
+      fg: `${puff(1180, 930, l / 30, 360, 46, '#e8cfa8', 5)}${T.shadow(1180, 930, 120, 0.3)}
+      ${G(1180, 930, 0.95, faced ? hector({ arms: 'spear', expr: 'determined', breathe: bob(f), blink: blink(f, [turn + 24]) }) : hector({ pose: 'run', expr: 'worried' }))}
+      ${G(470, 1290, 1.65, achNew({ expr: 'determined' }), { filter: 'silRed' })}` };
+  } },
+  // 12 · "He's wearing your armor." – close on the wave shield on his arm
+  { cue: "He's wearing", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 860, 560, 1.0], [d, 880, 560, 1.07]]);
+    const gl = win(l, 6, 26);
+    return { cam, bg: `${T.sky('dustsky')}<rect x="-200" y="-200" width="2320" height="1480" fill="#3a2a2a" opacity="0.35"/>`,
+      fg: `${G(1250, 1584, 3.2, hector({ arms: 'spear', expr: 'determined', shieldOn: false }))}
+      ${K.shield(820, 560, 330, { rim: C.teal, mark: C.tealS })}
+      ${gl > 0 && gl < 1 ? `<path d="M${(560 + gl * 540).toFixed(0)},250 l-160,620" stroke="#fff8e0" stroke-width="60" opacity="${(0.5 * Math.sin(gl * Math.PI)).toFixed(2)}" stroke-linecap="round"/>` : ''}` };
+  } },
+  // 13 · "And you know that armor better than anyone. One gap. At the neck." – the armour in a cool light, the gap glows
+  { cue: 'And you know', draw(f, l, d) {
+    const gapF = R.at('gap.', 1, 0), neckF = R.at('neck.', 1, -4);
+    const cam = S.camera(l, f < gapF ? [[0, 960, 600, 1.0], [gapF - R.SH[12].a, 960, 585, 1.05]] : [[0, 960, 600, 1.0], [gapF - R.SH[12].a, 960, 585, 1.05], [d, 960, 545, 1.4]]);
+    const g = easeOut(win(f, gapF - 2, gapF + 6)), pulse = 0.75 + 0.25 * Math.sin(f / 4);
+    let grid = '';
+    for (let x = 0; x <= 1920; x += 80) grid += `<path d="M${x},0 L${x},1080" stroke="#3a5a8a" stroke-width="2" opacity="0.25"/>`;
+    for (let y = 0; y <= 1080; y += 80) grid += `<path d="M0,${y} L1920,${y}" stroke="#3a5a8a" stroke-width="2" opacity="0.25"/>`;
+    return { cam, bg: `${T.sky('blue')}${grid}<rect x="-200" y="-200" width="2320" height="1480" fill="url(#coolLight)"/>${motes(f, 20, { col: '#cfe0ff', seed: 45 })}`,
+      fg: `${G(960, 1000, 1.25, PR.armorStand({ spear: false }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="#1a3a6a" opacity="0.38"/>
+      ${g > 0 ? `<g opacity="${(g * pulse).toFixed(2)}"><ellipse cx="960" cy="${(1000 - 1.25 * 428).toFixed(0)}" rx="${(130 * g).toFixed(0)}" ry="34" fill="url(#gapGlow)"/>
+        <path d="M${(960 - 70 * g).toFixed(0)},${(1000 - 1.25 * 430).toFixed(0)} Q960,${(1000 - 1.25 * 422).toFixed(0)} ${(960 + 70 * g).toFixed(0)},${(1000 - 1.25 * 430).toFixed(0)}" fill="none" stroke="#fffbe6" stroke-width="8" stroke-linecap="round"/></g>` : ''}
+      ${popLabel(f, gapF + 2, 1310, 300, 70, 'GAP')}
+      ${arrow(f, gapF + 6, 'M1250,330 Q1140,380 1060,450', 230, 'M1086,428 L1058,452 L1094,458')}` };
+  } },
+  // 14 · "His father watches from the wall." – Priam on the wall, hands to his face (hook shot 5)
+  { cue: 'His father', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.04], [d, 960, 500, 1.12]]);
+    return { cam, bg: T.troyWallBack(f),
+      fg: `${G(960, 800, 1.55, K.priamBust({ blink: blink(f, [R.at('wall.', 1, -6)]) }))}${T.troyWallFront()}` };
+  } },
+  // 15 · "You tie Hector to your chariot," – the chariot as a silhouette against the sunset
+  { cue: 'You tie', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 600, 1.1], [d, 960, 600, 1.16]]);
+    const go = win(l, 10, d), ph = (l * 0.035) % 1, x = 560 + go * go * 260;
+    return { cam, bg: sunsetPlain(f, 1050, 700, 280),
+      fg: `<g filter="url(#sil)">${G(x, 880, 0.8, G(20, -128, 0.72, K2.achilles({ arms: 'hold', expr: 'stern', P: NEW, shieldOn: false, spear: false })) + PR.chariotTeam({ phase: go > 0 ? ph : 0, gait: go > 0.05 ? 'walk' : 'stand' }))}</g>
+      ${go > 0 ? puff(x - 140, 880, ((l - 10) % 16) / 16, 260, 40, '#e09a6a', 1) : ''}` };
+  } },
+  // 16 · "and drag him through the dust." – wide: a small dark chariot racing, a long cloud of dust behind it
+  { cue: 'and drag', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.02], [d, 1000, 600, 1.06]]);
+    const x = 300 + l * 14, ph = (l * 0.08) % 1;
+    let dust = '';
+    for (let i = 0; i < 18; i++) { const a = rnd(i + 900), age = (i / 18), px = x - 60 - i * 62 - a * 40, rr = 44 + i * 11 + a * 24;
+      dust += `<circle cx="${px.toFixed(0)}" cy="${(862 - rr * 0.7 - i * 6 - Math.sin(f / 9 + i) * 6).toFixed(0)}" r="${rr.toFixed(0)}" fill="${i % 2 ? '#e09a6a' : '#c97a52'}" opacity="${(0.85 * (1 - age * 0.75)).toFixed(2)}"/>`; }
+    return { cam, bg: sunsetPlain(f, 1300, 690, 220),
+      fg: `${dust}<g filter="url(#sil)">${G(x, 860, 0.42, G(20, -128, 0.72, K2.achilles({ arms: 'hold', P: NEW, shieldOn: false, spear: false })) + PR.chariotTeam({ phase: ph }))}</g>
+      ${dust.replace(/opacity="([\d.]+)"/g, (m, v) => `opacity="${(v * 0.35).toFixed(2)}"`)}` };
+  } },
+  // 17 · "You don't feel better." – alone on the chariot, empty eyes; the dust settles
+  { cue: "You don't feel", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 760, 560, 1.7], [d, 740, 540, 1.76]]);
+    let dust = '';
+    for (let i = 0; i < 7; i++) { const a = rnd(i + 950); dust += `<ellipse cx="${(200 + a * 1500 + l * (0.6 + a)).toFixed(0)}" cy="${(800 + a * 160).toFixed(0)}" rx="${(260 + a * 200).toFixed(0)}" ry="${(40 + a * 30).toFixed(0)}" fill="#c98a6a" opacity="${(0.16 + a * 0.1).toFixed(2)}" filter="url(#soft)"/>`; }
+    return { cam, bg: sunsetPlain(f, 1500, 760, 180) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#2a1430" opacity="0.35"/>`,
+      fg: `${G(700, 1000, 1.1, G(20, -128, 0.72, K2.achilles({ arms: 'hold', expr: 'tired', P: NEW, shieldOn: false, spear: false, breathe: bob(f) * 0.6, blink: blink(f, [R.SH[16].a + 40]) })) + PR.chariotTeam({ gait: 'stand', nearCoat: '#8a5a3a', farCoat: '#5a3a26' }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="#2a1020" opacity="0.18"/>
+      ${dust}${motes(f, 16, { col: '#ffcf9a', seed: 47 })}` };
+  } },
+] });
+</script>
+</body>
+</html>

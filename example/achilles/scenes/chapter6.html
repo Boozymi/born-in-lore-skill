@@ -1,0 +1,258 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – chapter VI "Three Screams"</title>
+<style>html, body { margin: 0; padding: 0; background: #000; overflow: hidden; } #stage { width: 1920px; height: 1080px; } svg { display: block; }</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/cast2.js"></script>
+<script src="../lib/props.js"></script>
+<script src="../lib/scene.js"></script>
+<script src="../lib/sets.js"></script>
+<script src="../lib/runner.js"></script>
+<script>
+// Chapter VI "Three Screams" (EPISODE.md § 8) – grief, the secret, the screams at the trench, the new armor. No gags.
+// The tender shot (his mother holds his head) is long and slow; the two golden threads match the Fates' thread of the hook.
+const K = window.CAST, K2 = window.CAST2, PR = window.PROPS, S = window.SCENE, T = window.SETS;
+const { C, INK } = K;
+const { ease, easeOut, win, lerp, popLabel, arrow, motes } = S;
+const TEXT = `Then the news reaches you. You pour dirt over your own head. And your mom comes out of the sea. This time, she doesn't fix anything. She just holds your head. Then she tells you the other half of her secret. If you kill Hector, you die right after. Your answer? So be it. You don't even have armor anymore. So you walk to the trench, and you scream. Three times. The Trojans panic. Twelve of their best die in the chaos. That night, the god of blacksmiths makes you new armor. The whole world fits on the shield. Tomorrow, Hector.`;
+
+// ---------- helpers ----------
+const n = v => Math.round(v * 10) / 10;
+const bob = (f, k = 0) => Math.sin((f + k * 13) / 17) * 3;
+const bl = (l, k = 0, per = 96) => { const d = (((l - 24 - k * 31) % per) + per) % per; return d <= 6 ? (d <= 3 ? d / 3 : (6 - d) / 3) : 0; };
+const put = (x, y, s, svg, rot = 0) => `<g transform="translate(${n(x)} ${n(y)})${rot ? ` rotate(${n(rot)})` : ''} scale(${s})">${svg}</g>`;
+function scr(cam, x, y) { const m = cam.match(/scale\(([-\d.]+)\) translate\(([-\d.]+) ([-\d.]+)\)/); const z = +m[1]; return [960 + (x + +m[2]) * z, 540 + (y + +m[3]) * z]; }
+function label(f, f0, x, y, size, str, o = {}) {
+  const hw = Math.max(str.length * size * 0.36 + 14, o.sub ? o.sub.length * size * 0.13 : 0);
+  return popLabel(f, f0, Math.min(1880 - hw, Math.max(40 + hw, x)), Math.min(1010 - (o.sub ? size * 0.75 : 0), Math.max(50 + size * 0.75, y)), size, str, o);
+}
+// dirt in his hair after he pours it over his head (head coordinates, r = 72; k = how many specks)
+function dirtSpecks(k) {
+  let s = '';
+  for (let i = 0; i < k; i++) { const a = S.rnd(i + 300), b = S.rnd(i * 1.7 + 41), x = (a - 0.5) * 130, y = -36 - b * 40 + Math.abs(x) * 0.35;
+    s += `<ellipse cx="${n(x)}" cy="${n(y)}" rx="${n(2 + S.rnd(i + 7) * 2.4)}" ry="${n(1.6 + S.rnd(i + 8) * 1.6)}" fill="${i % 3 ? '#6a4a30' : '#4a3220'}" opacity="0.8"/>`; }
+  return s;
+}
+// adult Achilles without armor (grief), with the dirt in his hair
+const achCiv = (o = {}, dirt = 0) => K2.achilles({ armor: false, arms: 'down', ...o, head: dirt ? { wear: dirtSpecks(dirt) } : undefined });
+// the new armor: brighter bronze; the world shield goes on by hand (worldShield at the shield place of man())
+const NEW = { metal: '#f0c75c', metalS: '#c9952e', metalL: '#fff0b0' };
+const newArmor = (o = {}, f = 0) => K2.achilles({ shieldOn: false, expr: 'determined', ...o, P: NEW }) + put(-112, -300 + (o.breathe || 0), 1, PR.worldShield({ R: 94, rot: f * 0.3 }));
+// the trench in front of the camp: earth bank and sharpened stakes
+function stakes(y, col = '#3a2622') {
+  let s = `<path d="M-200,${y + 20} Q960,${y - 30} 2120,${y + 20} L2120,1300 L-200,1300 Z" fill="#1e1416"/>`;
+  for (let x = -60; x < 1980; x += 74) s += `<path d="M${x},${y + 30} L${x + 30},${y - 90} L${x + 60},${y + 30} Z" fill="${col}" stroke="${INK}" stroke-width="4"/>`;
+  return s;
+}
+
+const DEFS6 = `<radialGradient id="tender" cx="0.5" cy="0.55" r="0.7"><stop offset="0.35" stop-color="#1a0c14" stop-opacity="0"/><stop offset="1" stop-color="#12060c" stop-opacity="0.75"/></radialGradient>
+  <linearGradient id="redSky6" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c0c16"/><stop offset="0.45" stop-color="#6a1c22"/><stop offset="0.75" stop-color="#d0502e"/><stop offset="1" stop-color="#f08a3c"/></linearGradient>
+  <radialGradient id="faceLight" cx="0.66" cy="0.45" r="0.75"><stop offset="0" stop-color="#5a1a1a"/><stop offset="0.6" stop-color="#2a0c10"/><stop offset="1" stop-color="#10050a"/></radialGradient>
+  <linearGradient id="dawn6" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a5a8a"/><stop offset="0.45" stop-color="#d89a90"/><stop offset="0.62" stop-color="#f6c890"/></linearGradient>
+  <clipPath id="aboveSea"><rect x="-300" y="-300" width="2520" height="1082"/></clipPath>
+  <filter id="hotF" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.4 0.4 0.2 0 0.45  0.3 0.35 0.1 0 0.22  0.1 0.1 0.1 0 0.02  0 0 0 1 0"/></filter>`;
+
+const R = RUN({ TEXT, OFF: 1.6, card: ['VI', 'Three Screams'], tail: 1.4, defs: () => DEFS6, SHOTS: [
+  // 1 · "Then the news reaches you." – a runner reaches the tent at dusk; you turn
+  { cue: 'Then the news', draw(f, l, d) {
+    const you = R.at('you.', 1, -4);
+    const cam = S.camera(l, [[0, 1000, 600, 1.12], [d, 1050, 580, 1.17]]);
+    const st = easeOut(win(l, 0, 26)), rx = lerp(120, 760, st), hop = st < 1 ? -Math.abs(Math.sin(l / 2.8)) * 14 * (1 - st) : 0;
+    return { cam, bg: `${T.camp(f, { time: 'dusk' })}<rect x="-200" y="-200" width="2320" height="1480" fill="#1a0c18" opacity="0.25"/>${put(1460, 960, 1.25, PR.tent({ open: 0.8, cloth: '#c9a77a', clothS: '#9c7a52' }))}`,
+      fg: `${st < 0.95 ? put(rx - 120, 1000, 0.7, PR.dustCloud({ t: (l % 14) / 14, w: 200, r: 34, col: '#8a6a52' })) : ''}${T.shadow(rx, 1000, 90, 0.3)}
+        ${put(rx, 1000 + hop, 0.9, K2.soldier({ side: 'greek', k: 1, pose: st < 0.9 ? 'run' : 'stand', arms: st < 0.9 ? 'pump' : 'down', spear: false, shieldOn: false, expr: 'cry', look: 1 }))}
+        ${T.shadow(1220, 1005, 100, 0.3)}${put(1220, 1005, 0.98, achCiv({ expr: f >= you ? 'shocked' : 'calm', look: f >= you - 8 ? -1 : 0.3, blink: bl(l), breathe: bob(f) }))}` };
+  } },
+  // 2 · "You pour dirt over your own head." – kneeling in the sand, the dirt runs through his fingers into his hair
+  { cue: 'You pour', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.14], [d, 960, 525, 1.21]]);
+    const X = 960, Y = 1010, s = 1.12;
+    let dirt = '';
+    for (let i = 0; i < 46; i++) { const a = S.rnd(i + 11), t = ((l / 22) + a) % 1, side = i % 2 ? 1 : -1;
+      const x = X + side * (40 + a * 30) * s - side * t * 30, y = Y - 512 * s + t * t * 260;
+      dirt += `<circle cx="${n(x + Math.sin(i + t * 4) * 8)}" cy="${n(y)}" r="${n(3 + a * 4)}" fill="#5a3f2a" opacity="${n(0.9 * (1 - t * 0.6))}"/>`; }
+    return { cam, bg: `${T.sky('dusk')}${T.sun(1560, 640, 120, '#f6a86a', '#e0704a')}${T.seaBand(560, 150, '#2a3048', '#d9905e', f, 41)}
+      <rect y="700" width="1920" height="500" fill="#6a4c40"/><circle cx="1500" cy="700" r="600" fill="#ff8a50" opacity="0.12" filter="url(#soft)"/>`,
+      fg: `${T.shadow(X, Y, 160, 0.35)}${put(X, Y, s, achCiv({ pose: 'kneel', arms: 'dirt', expr: 'cry', breathe: bob(f) }, Math.min(40, Math.floor(l / 2))))}${dirt}${motes(f, 14, { col: '#ffcfa0', seed: 61 })}` };
+  } },
+  // 3 · "And your mom comes out of the sea." – dusk; slowly, she rises behind him (no splash, no sparkle)
+  { cue: 'And your mom', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 560, 1.08], [d, 880, 580, 1.13]]);
+    const r = ease(win(l, 2, d)), ty = lerp(1260, 790, r);
+    const ring = k => { const t = ((l / 40) + k / 3) % 1; return `<ellipse cx="760" cy="782" rx="${n(80 + t * 260)}" ry="${n(12 + t * 30)}" fill="none" stroke="#f6c89a" stroke-width="4" opacity="${n(0.5 * (1 - t))}"/>`; };
+    return { cam, bg: `${T.beach(f, { time: 'dusk', sand: 800 })}<rect x="-200" y="-200" width="2320" height="1480" fill="#140a18" opacity="0.2"/>`,
+      fg: `<g clip-path="url(#aboveSea)">${put(760, ty, 0.72, K.thetis({ holdOut: true, expr: 'sad', look: 0.8, blink: bl(l), breathe: bob(f) }) + K.hand(170, -262, 14))}</g>${ring(0)}${ring(1)}${ring(2)}
+        <g opacity="0.92">${T.shadow(1400, 1010, 90, 0.35)}${put(1400, 1010, 0.78, achCiv({ pose: 'kneel', arms: 'down', expr: 'cry', blink: 1, tears: true }, 34))}</g>` };
+  } },
+  // 4 · "This time, she doesn't fix anything." – she reaches him; her hand is empty, no magic this time
+  { cue: 'This time,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 920, 580, 1.12], [d, 980, 570, 1.17]]);
+    const w = easeOut(win(l, 0, d * 0.85)), tx = lerp(470, 760, w);
+    return { cam, bg: `${T.sky('dusk')}${T.sun(1600, 600, 100, '#f6a86a', '#e0704a')}${T.seaBand(520, 200, '#2a3048', '#d9905e', f, 43)}
+      <rect y="720" width="1920" height="500" fill="#6a4c40"/><path d="M-50,726 Q960,712 1980,730" fill="none" stroke="#f6d8b8" stroke-width="7" opacity="0.3"/>`,
+      fg: `${T.shadow(tx, 1000, 100, 0.3)}${put(tx, 1000 - Math.sin(l / 6) * 3, 0.95, K.thetis({ holdOut: true, expr: 'sad', look: 0.8, blink: bl(l, 1), breathe: bob(f) }) + K.hand(170, -262, 14))}
+        ${T.shadow(1220, 1010, 130, 0.35)}${put(1220, 1010, 1.05, achCiv({ pose: 'kneel', arms: 'down', expr: 'cry', look: -0.4, blink: bl(l), breathe: bob(f, 2) }, 34))}` };
+  } },
+  // 5 · "She just holds your head. Then she tells you the other half of her secret." – the long, slow, tender shot
+  { cue: 'She just', draw(f, l, d) {
+    const sec = R.at('secret.', 1, -6);
+    const cam = S.camera(l, [[0, 950, 640, 1.3], [d, 962, 628, 1.36]]);
+    const br = Math.sin(f / 22) * 3, lean = 5 + Math.sin(f / 40) * 0.8;
+    const tears = [-1, 1].map(sd => `<path d="M${sd * 28},${n(-452 + br + 24)} q${sd * 3},16 ${sd * 2},${n(30 + Math.sin(f / 9) * 3)}" fill="none" stroke="#9fd8ee" stroke-width="5" stroke-linecap="round"/>`).join('');
+    const mom = put(800, 1050, 1.2, K.thetis({ holdOut: true, expr: 'sad', blink: 1, breathe: br }) + tears, lean);
+    const son = put(1080, 1263, 1.2, achCiv({ pose: 'kneel', arms: 'down', expr: 'sad', blink: 1, tears: true, headTilt: -16, breathe: br * 0.6 }, 34));
+    const hand = `<g transform="translate(800 1050) rotate(${n(lean)}) scale(1.2)">${K.hand(172, -258 + br, 16)}<path d="M160,${n(-266 + br)} q8,-6 16,0" fill="none" stroke="${INK}" stroke-width="3"/></g>`;
+    const th = win(f, sec, sec + 18);
+    const thread = th > 0 ? `<g transform="translate(955 ${n(560 + Math.sin(f / 10) * 6)})" opacity="${n(th)}"><circle r="${n(60 + 20 * Math.sin(f / 6))}" fill="#ffd98a" opacity="0.3" filter="url(#soft)"/>${PR.thread({ len: 70 })}</g>` : '';
+    return { cam, bg: `${T.sky('dusk')}${T.sun(1500, 660, 140, '#f6b27a', '#e08a5a')}${T.seaBand(600, 160, '#2a3048', '#d9905e', f, 45)}<rect y="760" width="1920" height="500" fill="#5a4040"/>
+      <circle cx="930" cy="560" r="520" fill="#ffb98a" opacity="0.16" filter="url(#soft)"/>`,
+      fg: `${mom}${son}${hand}${thread}${motes(f, 12, { col: '#ffd9b0', seed: 63 })}<rect x="-200" y="-200" width="2320" height="1480" fill="url(#tender)"/>` };
+  } },
+  // 6 · "If you kill Hector, you die right after." – two short golden threads: HECTOR, YOU; the shears cut the first and wait
+  { cue: 'If you kill', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 770, 580, 1.3], [d, 865, 580, 1.32]]);
+    const kH = R.at('Hector,', 1, 0), cut = kH + 8, yu = R.at('you die', 1, 0), mv = win(f, yu - 2, yu + 14);
+    const open = f < kH ? 22 : f < cut ? lerp(22, 3, win(f, kH, cut)) : mv <= 0 ? 3 : mv < 1 ? lerp(3, 24, mv) : 24 - 10 * ease(win(f, yu + 14, yu + 50)) + Math.sin(f / 3) * 0.8;
+    const px = lerp(700 - 265, 1240 - 265, ease(mv));
+    const cH = win(f, cut, cut + 10);
+    return { cam, bg: `${T.sky('plum')}<circle cx="960" cy="560" r="560" fill="#4a2f5a" opacity="0.45" filter="url(#soft)"/>${motes(f, 22, { col: '#e9d8ff', seed: 51 })}`,
+      fg: `${put(px, 600, 1, PR.shears({ open }))}${put(700, 606, 1, PR.thread({ len: 70, cut: cH }))}${put(1240, 606, 1, PR.thread({ len: 70 }))}
+        <circle cx="1240" cy="606" r="${n(70 + Math.sin(f / 5) * 8)}" fill="#ffd98a" opacity="0.12" filter="url(#soft)"/>`,
+      hud: (() => { const [hx, hy] = scr(cam, 700, 470), [yx, yy] = scr(cam, 1240, 470);
+        return `${label(f, kH, hx, hy, 70, 'HECTOR')}${label(f, yu, yx, yy, 86, 'YOU', { fill: '#f6d35b' })}`; })() };
+  } },
+  // 7 · "Your answer?" – his eyes, wet; then something hardens
+  { cue: 'Your answer?', draw(f, l, d) {
+    const hard = R.end('answer?', 1, -6);
+    const cam = S.camera(l, [[0, 960, 560, 1.06], [d, 960, 545, 1.1]]);
+    const fig = achCiv({ expr: f < hard ? 'cry' : 'determined', tears: f >= hard, blink: f >= hard - 4 && f < hard + 2 ? 1 : 0, breathe: bob(f) }, 40);
+    return { cam, bg: `${T.sky('faceLight')}<circle cx="1400" cy="400" r="520" fill="#ff7a3a" opacity="0.14" filter="url(#soft)"/>`,
+      fg: `${put(960, 540 + 470 * 3.0, 3.0, fig)}<rect x="-200" y="-200" width="2320" height="1480" fill="url(#tender)"/>` };
+  } },
+  // 8 · "So be it." – he stands up, against the red sky
+  { cue: 'So be it.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.08], [d, 960, 540, 1.12]]);
+    const up = easeOut(win(l, 0, 12));
+    return { cam, bg: `${T.sky('redSky6')}${T.sun(1180, 760, 260, '#ffd59a', '#ffb26b')}${T.smoke(f, 400, 900, 1.3, '#3a1a20', 4, 0.4)}`,
+      fg: `${put(900, lerp(1520, 1240, up), 1.42, achCiv({ expr: 'determined', look: 0.3, breathe: bob(f) }, 40))}<rect x="-200" y="1000" width="2320" height="300" fill="#140a10"/>${motes(f, 18, { col: '#ffb070', seed: 65 })}` };
+  } },
+  // 9 · "You don't even have armor anymore." – the empty stand in the dark tent
+  { cue: "You don't even", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1180, 590, 1.12], [d, 1240, 560, 1.22]]);
+    return { cam, bg: `${T.tentInside(f, { night: true })}<rect x="-200" y="-200" width="2320" height="1480" fill="#08040a" opacity="0.4"/>
+      <path d="M1180,-40 L1340,-40 L1520,990 L1000,990 Z" fill="#cfd8ff" opacity="${n(0.07 + Math.sin(f / 9) * 0.01)}"/>`,
+      fg: `${T.shadow(1260, 990, 140, 0.35)}${put(1260, 990, 1.15, PR.armorStand({ empty: true }))}${motes(f, 12, { col: '#d8dcff', seed: 67 })}` };
+  } },
+  // 10 · "So you walk to the trench, and you scream." – no armor, only a flame of light around his head
+  { cue: 'So you walk', draw(f, l, d) {
+    const sc = R.at('scream.', 1, -2);
+    const cam = S.camera(l, [[0, 960, 600, 1.1], [d, 960, 560, 1.16]]);
+    const w = Math.min(1, l / (sc - (f - l))), s = lerp(0.78, 1.0, w), y = lerp(880, 1000, w), x = lerp(1060, 960, w);
+    const scr8 = f >= sc, hop = scr8 ? 0 : -Math.abs(Math.sin(l / 4)) * 6;
+    const fig = achCiv({ pose: scr8 ? 'scream' : 'walk', arms: scr8 ? 'out' : 'down', expr: scr8 ? 'scream' : 'determined', breathe: bob(f) }, 40);
+    const hy = y - (scr8 ? 476 : 470) * s;
+    return { cam, bg: `${T.camp(f, { time: 'dusk' })}<rect x="-200" y="-200" width="2320" height="1480" fill="#1a0810" opacity="0.35"/>`,
+      fg: `${T.shadow(x, y, 110 * s, 0.35)}${put(x, hy, s, PR.flameHalo({ f, a: 0.35 + 0.55 * win(l, 6, 40) }))}${put(x, y + hop, s, fig)}
+        ${stakes(1010)}` };
+  } },
+  // 11 · "Three times." – three screams, three shock rings: 1 · 2 · 3
+  { cue: 'Three times.', draw(f, l, d) {
+    const t1 = R.at('Three', 1, -1), ts = [t1, t1 + 16, t1 + 32];
+    const k = ts.filter(t => f >= t).length, last = ts[Math.max(0, k - 1)];
+    const jolt = k ? Math.max(0, 1 - (f - last) / 8) : 0;
+    const sh = jolt * 8;
+    const cam = `translate(${n(Math.sin(f * 2.3) * sh)} ${n(Math.cos(f * 2.9) * sh)}) ` + S.camera(l, [[0, 960, 540, 1.06], [d, 960, 520, 1.1]]);
+    const s = 1.5 + jolt * 0.04, hx = 960, hy = 1330 - 476 * s;
+    let rings = '';
+    for (const t of ts) if (f >= t) rings += put(hx, hy, 1, PR.shockRing({ t: win(f, t, t + 28), r0: 120, r1: 1300, w: 34 }));
+    const nums = ts.map((t, i) => label(f, t, [560, 960, 1360][i], 170, 82, String(i + 1))).join('');
+    return { cam, bg: `${T.sky('redSky6')}<circle cx="${hx}" cy="${n(hy)}" r="${n(480 + jolt * 120)}" fill="#ffe7a8" opacity="${n(0.22 + jolt * 0.2)}" filter="url(#soft)"/>${T.rays(f, hx, hy, 22, '#ffe7a8', 0.06 + jolt * 0.06, 0.003)}`,
+      fg: `${put(hx, hy, s * 1.15, PR.flameHalo({ f, a: 1 }))}${put(hx, 1330, s, achCiv({ pose: 'scream', arms: 'out', expr: 'scream', breathe: 0 }, 40))}${rings}`,
+      hud: nums, over: jolt > 0.6 ? `<rect width="1920" height="1080" fill="#fff6e0" opacity="${n((jolt - 0.6) * 0.5)}"/>` : '' };
+  } },
+  // 12 · "The Trojans panic." – horses rear, a chariot tips over, all in silhouette against the red sky
+  { cue: 'The Trojans panic.', draw(f, l, d) {
+    const cam = `translate(${n(Math.sin(f * 1.9) * 2)} 0) ` + S.camera(l, [[0, 960, 580, 1.1], [d, 1000, 560, 1.15]]);
+    const rear = k => -(22 + 10 * Math.sin((f + k * 9) / 6));
+    const horseR = (x, y, s, k, flip) => `<g transform="translate(${x} ${y}) scale(${flip ? -s : s} ${s})"><g transform="rotate(${n(rear(k))} -112 0)">${PR.horse({ gait: 'stand', expr: 'wild', harness: true })}</g></g>`;
+    let men = '';
+    for (const [x, k] of [[420, 0], [1500, 1], [1700, 2]]) men += put(x, 900, 0.5, K2.soldier({ side: 'trojan', k, arms: k === 1 ? 'handsHead' : 'cheer', spear: false, shieldOn: false, expr: 'shocked' }));
+    let dust = '';
+    for (let i = 0; i < 4; i++) dust += put(360 + i * 420, 910, 1.6, PR.dustCloud({ t: ((l + i * 9) % 40) / 40, w: 420, r: 60, col: '#5a2a24', seed: i }));
+    return { cam, bg: `${T.sky('redSky6')}${T.sun(960, 640, 230, '#ffd59a', '#ffb26b')}`,
+      fg: `${dust}<g filter="url(#sil)">${horseR(760, 900, 0.72, 0, false)}${horseR(1230, 905, 0.66, 1, true)}${put(1010, 910, 0.7, PR.chariot({ spin: f * 0.1 }), 28)}${men}
+        <rect x="-200" y="900" width="2320" height="400" fill="#000"/></g>${motes(f, 24, { col: '#ffb070', seed: 69 })}` };
+  } },
+  // 13 · "Twelve of their best die in the chaos." – afterwards: twelve helmets in the dust, nobody shown
+  { cue: 'Twelve', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 860, 600, 1.12], [d, 960, 610, 1.15]]);
+    const TP = [{ metal: '#c99a52', metalS: '#9c7234', crest: '#2a1f1b' }, { metal: '#c99a52', metalS: '#9c7234', crest: '#e2b04e' }, { metal: '#c99a52', metalS: '#9c7234', crest: '#b8352c' }];
+    let helms = '';
+    // each helmet lies tipped over on the ground (rim down to the side, crest in the dust)
+    for (let i = 0; i < 12; i++) { const a = S.rnd(i + 210), b = S.rnd(i * 1.3 + 7), s = 0.62 + b * 0.26, rot = (i % 2 ? 1 : -1) * (18 + a * 34);
+      const x = 150 + i * 145 + (a - 0.5) * 50, y = 830 + (i % 3) * 64 + b * 24;
+      helms += `<ellipse cx="${n(x)}" cy="${n(y + 4)}" rx="${n(70 * s)}" ry="${n(12 * s)}" fill="#000" opacity="0.28"/>${put(x, y - 40 * s, s, PR.helmetProp({ P: TP[i % 3] }), rot)}`; }
+    let dust = '';
+    for (let i = 0; i < 5; i++) dust += put(200 + i * 400 + l * 0.6, 900, 2.2, PR.dustCloud({ t: 0.35 + 0.25 * Math.sin((l + i * 20) / 30), w: 520, r: 70, col: '#9a7a6a', seed: i + 4 }));
+    return { cam, bg: `${T.battlefield(f, { time: 'dusk' })}<rect x="-200" y="-200" width="2320" height="1480" fill="#24141c" opacity="0.38"/>`,
+      fg: `${helms}<g opacity="0.45">${dust}</g>${put(1380, 960, 1, PR.spear({ len: 520, angle: 76 }))}` };
+  } },
+  // 14 · "That night, the god of blacksmiths" – Hephaestus at his forge, the hammer falls on the beat
+  { cue: 'That night,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 560, 1.1], [d, 940, 540, 1.15]]);
+    const per = 22.5, ph = ((l + 12) % per) / per, hu = ph < 0.18 ? 1 - ph / 0.18 : ease((ph - 0.18) / 0.82);
+    const hit = ph < 0.18 ? 1 - ph / 0.18 : 0;
+    const X = 640, Y = 1000, s = 1.15, ax = X + 200 * s, ay = Y - 236 * s;
+    let sparks = '';
+    if (hit > 0) for (let i = 0; i < 16; i++) { const a = -Math.PI * (0.1 + 0.8 * S.rnd(i + Math.floor(l / per) * 17)), v = 60 + 200 * S.rnd(i + 3), t = 1 - hit;
+      sparks += `<circle cx="${n(ax + 40 + Math.cos(a) * v * (0.3 + t))}" cy="${n(ay + Math.sin(a) * v * (0.3 + t) + 80 * t * t)}" r="${n(3 + S.rnd(i) * 3)}" fill="#ffe08a" opacity="${n(hit)}"/>`; }
+    const [lx, ly] = scr(cam, X - 60, Y - 640 * s);
+    return { cam, bg: T.forge(f),
+      fg: `${put(X, Y, s, K2.hephaestus({ hammerUp: hu, blink: bl(l), breathe: bob(f) }))}${put(X + 200 * s, Y, 1.3 * s, PR.anvil({}))}
+        ${hit > 0 ? `<circle cx="${n(ax + 40)}" cy="${n(ay)}" r="${n(90 + 60 * hit)}" fill="#ffd36b" opacity="${n(0.45 * hit)}" filter="url(#soft)"/>` : ''}${sparks}`,
+      hud: label(f, R.at('god', 1, 2), lx, ly, 70, 'HEPHAESTUS', { sub: '(god of blacksmiths)' }) };
+  } },
+  // 15 · "makes you new armor." – close at the anvil: the new helmet glows, the hammer rings
+  { cue: 'makes you', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.06], [d, 980, 540, 1.1]]);
+    const per = 22.5, ph = ((l + 4) % per) / per, hit = ph < 0.2 ? 1 - ph / 0.2 : 0, up = ph < 0.2 ? 0 : ease((ph - 0.2) / 0.8);
+    const hot = Math.max(0, 1 - l / 60);
+    let sparks = '';
+    if (hit > 0) for (let i = 0; i < 24; i++) { const a = -Math.PI * (0.05 + 0.9 * S.rnd(i + Math.floor(l / per) * 13)), v = 120 + 380 * S.rnd(i + 5), t = 1 - hit;
+      sparks += `<circle cx="${n(960 + Math.cos(a) * v * (0.3 + t))}" cy="${n(520 + Math.sin(a) * v * (0.3 + t) + 160 * t * t)}" r="${n(4 + S.rnd(i) * 4)}" fill="#ffe08a" opacity="${n(hit)}"/>`; }
+    const helm = `<g filter="url(#drop)">${put(960, 418, 2.0, PR.helmetProp({ P: NEW }))}</g><g opacity="${n(hot * 0.85)}" filter="url(#hotF)">${put(960, 418, 2.0, PR.helmetProp({ P: NEW }))}</g>`;
+    // the finished cuirass waits on its stand; the world shield (not the old wave shield) leans on it
+    const stand = PR.armorStand({ P: NEW, spear: false }) + `<g transform="rotate(-7 -120 -10)">${put(-130, -170, 1, PR.worldShield({ R: 98, rot: f * 0.2 }))}</g>`;
+    const gx = 1240 - up * 40, gy = 330 - up * 230;
+    return { cam, bg: `${T.sky('forge')}<circle cx="1500" cy="560" r="620" fill="#ff7a2a" opacity="0.32" filter="url(#soft)"/>${T.flame(f, 1640, 1000, 1.6, 2)}
+      ${put(330, 780, 1, stand)}`,
+      fg: `${put(960, 1220, 3.2, PR.anvil({}))}${helm}<circle cx="960" cy="470" r="${n(180 + 120 * hit)}" fill="#ffd36b" opacity="${n(0.2 + 0.4 * hit)}" filter="url(#soft)"/>${sparks}
+        ${K.limb(1980, 160 - up * 280, gx + 30, gy - 10, 74, '#e9b78e', '#c99068')}${put(gx, gy, 1.6, PR.hammer({ angle: lerp(-84, -36, up) }))}${K.hand(gx + 6, gy - 6, 34)}` };
+  } },
+  // 16 · "The whole world fits on the shield." – the new shield turns slowly: sun, moon, stars, cities, fields, the ocean
+  { cue: 'The whole world', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.06], [d, 960, 540, 1.14]]);
+    let glints = '';
+    for (let i = 0; i < 6; i++) { const a = (f / 40 + i / 6) * Math.PI * 2, r = 400; const t = (Math.sin(f / 7 + i * 2) + 1) / 2;
+      glints += `<path transform="translate(${n(960 + Math.cos(a) * r)} ${n(540 + Math.sin(a) * r)}) scale(${n(0.4 + t)})" d="M0,-22 L5,-5 L22,0 L5,5 L0,22 L-5,5 L-22,0 L-5,-5 Z" fill="#fffbe6" opacity="${n(t)}"/>`; }
+    return { cam, bg: `${T.sky('forge')}<circle cx="960" cy="540" r="${n(620 + Math.sin(f / 8) * 20)}" fill="#ffb84a" opacity="0.25" filter="url(#soft)"/>${T.rays(f, 960, 540, 20, '#ffe7a8', 0.05, 0.002)}${motes(f, 24, { col: '#ffe08a', seed: 71 })}`,
+      fg: `${put(960, 540, 1, PR.worldShield({ R: 410, rot: l * 0.32, glow: 0.55 + 0.15 * Math.sin(f / 9) }))}${glints}` };
+  } },
+  // 17 · "Tomorrow, Hector." – dawn: in the new armor, he looks at Troy
+  { cue: 'Tomorrow,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 600, 1.08], [d, 830, 545, 1.2]]);
+    return { cam, bg: `${T.sky('dawn6')}${T.sun(1660, 620, 110, '#ffe2a8', '#ffd08a')}<g transform="translate(470 0)">${T.troySkyline(560, 0.42, '#6a5a78')}</g>
+      <path d="M-100,660 Q600,630 1300,660 Q1700,675 2020,650 L2020,1200 L-100,1200 Z" fill="#8a6a5c"/><path d="M-100,800 Q500,740 980,780 Q1500,820 2020,790 L2020,1200 L-100,1200 Z" fill="#6e5048"/>
+      ${motes(f, 16, { col: '#fff1d6', seed: 73 })}`,
+      fg: `${T.shadow(720, 1000, 120, 0.3)}${put(720, 1000, 1.0, newArmor({ look: 1, blink: bl(l), breathe: bob(f) }, f))}
+        <circle cx="720" cy="560" r="300" fill="#ffd9a0" opacity="0.1" filter="url(#soft)"/>` };
+  } },
+] });
+</script>
+</body>
+</html>

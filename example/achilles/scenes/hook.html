@@ -1,0 +1,291 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – piece 1: hook</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  #stage { width: 1920px; height: 1080px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/scene.js"></script>
+<script>
+// Piece 1 – the hook of "What If You Were Born as Achilles?" (SCRIPT.md).
+// Every cut and every pop hangs on the narrator's word timings: ?words=../voice/hook/words.json (real voice),
+// without it the timings are estimated at 2.5 words/s.
+const { C, INK } = window.CAST;
+const K = window.CAST;
+const S = window.SCENE;
+const { ease, easeOut, win, lerp, popLabel, arrow, motes, blink } = S;
+const FPS = 30;
+const TEXT = `If you were born as Achilles, you'd kill lions at six, then a son of Poseidon, then Troy's greatest prince, in front of his own father. And you'd pick that life on purpose, knowing exactly how short it is. But right now, you're a baby, hanging upside down by one heel over the river of the dead, and you're already screaming for attention.`;
+
+let W, SH = [], END = 0;
+const F = (t, off = 0) => Math.round(t * FPS) + off;          // seconds → frame
+const at = (phrase, n = 1, off = 2) => F(S.cue(W, phrase, n).s, off);   // pop 2 frames after the word starts
+
+// ---------- backgrounds ----------
+const grad = (id, stops, x2 = 0, y2 = 1) => `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join('')}</linearGradient>`;
+function seaBand(y, h, col, streak, f, seed = 0) {
+  let s = `<rect x="-400" y="${y}" width="2720" height="${h}" fill="${col}"/>`;
+  for (let i = 0; i < 22; i++) {
+    const a = S.rnd(i + seed), b = S.rnd(i * 5.1 + seed);
+    const x = -200 + ((a * 2400 + f * (0.4 + b * 0.5)) % 2400), yy = y + 10 + b * (h - 20);
+    s += `<path d="M${x.toFixed(0)},${yy.toFixed(0)} l${(40 + a * 90).toFixed(0)},0" stroke="${streak}" stroke-width="${(2 + b * 3).toFixed(1)}" stroke-linecap="round" opacity="${(0.25 + a * 0.4).toFixed(2)}"/>`;
+  }
+  return s;
+}
+function pines(x, y, s, col, colS) {
+  return `<g transform="translate(${x} ${y}) scale(${s})"><rect x="-8" y="-40" width="16" height="44" fill="#4b3424" stroke="${INK}" stroke-width="4"/>
+    <path d="M0,-260 L70,-130 L40,-130 L90,-40 L-90,-40 L-40,-130 L-70,-130 Z" fill="${col}" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M0,-260 L-70,-130 L-40,-130 L-90,-40 L-20,-40 L-10,-140 Z" fill="${colS}" opacity="0.55"/></g>`;
+}
+
+// ---------- shots ----------
+// each shot: (f = frame in the video, l = frame inside the shot, d = shot length) → svg in 1920x1080 stage space + camera keys
+const SHOTS = [
+  // 1 · "If you were born as Achilles," – the grown-up hero on a cliff at dusk, name tag
+  { cue: ['If'], draw(f, l, d) {
+    const tag = at('Achilles,');
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 500, 1.07]]);
+    const b = Math.sin(f / 14) * 3.5;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#dusk)"/>
+      <circle cx="1480" cy="650" r="150" fill="#ffd28a" opacity="0.9"/><circle cx="1480" cy="650" r="260" fill="#ffb060" opacity="0.18"/>
+      ${seaBand(650, 430, '#27384a', '#f2a65e', f)}
+      <path d="M-50,1100 L-50,880 Q300,820 620,860 Q900,880 1200,840 Q1500,820 1980,900 L1980,1100 Z" fill="#3a2a26" stroke="${INK}" stroke-width="5"/>
+      <path d="M-50,900 Q300,840 620,880" fill="none" stroke="#5a4136" stroke-width="10" stroke-linecap="round"/>
+      ${motes(f, 24, { col: '#ffe2b0' })}`,
+      fg: `<ellipse cx="960" cy="905" rx="190" ry="20" fill="#000" opacity="0.25"/>
+      <g transform="translate(960 900) scale(1.05)">${K.adultAchilles({ breathe: b, blink: blink(f, [F(0.9), F(2.2)]), look: -0.3 })}</g>
+      ${popLabel(f, tag, 560, 330, 92, 'ACHILLES', { sub: '(you)' })}` };
+  } },
+  // 2 · "you'd kill lions at six," – the kid drags a knocked-out lion out of Chiron's cave
+  { cue: ["you'd", 'kill'], draw(f, l, d) {
+    const six = at('six,');
+    const cam = S.camera(l, [[0, 1000, 560, 1.12], [d, 940, 560, 1.18]]);
+    const pull = -l * 1.6, bob = Math.abs(Math.sin(l / 4)) * -6;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#day)"/>
+      <path d="M-100,640 L260,420 L520,600 L820,380 L1180,620 L1500,430 L2020,640 Z" fill="#a7a6c6" opacity="0.8"/>
+      ${pines(1620, 760, 1.1, '#4f7a46', '#355a31')}${pines(1820, 780, 0.9, '#4f7a46', '#355a31')}${pines(420, 730, 0.8, '#4f7a46', '#355a31')}
+      <path d="M-80,760 Q120,420 420,450 Q640,470 700,780 Z" fill="#7a6a5c" stroke="${INK}" stroke-width="5"/>
+      <path d="M150,780 Q220,560 380,570 Q520,590 540,780 Z" fill="#231a16"/>
+      <rect y="760" width="1920" height="320" fill="#7f8f4c"/><rect y="760" width="1920" height="10" fill="#000" opacity="0.12"/>
+      ${motes(f, 18, { col: '#fffbe6', seed: 3 })}`,
+      fg: `<g transform="translate(${1490 + pull} 930) scale(-1.25 1.25)">${K.lionKO({ tailX: 240, tailY: -90 })}</g>
+      <ellipse cx="${1110 + pull}" cy="935" rx="90" ry="14" fill="#000" opacity="0.2"/>
+      <g transform="translate(${1110 + pull} ${930 + bob})">${K.kidAchilles({ expr: 'happy', breathe: 0 })}</g>
+      ${popLabel(f, six, 1150 + pull * 0.5, 420, 84, 'AGE 6', { rot: -4 })}` };
+  } },
+  // 3 · "then a son of Poseidon," – Cycnus goes down, Achilles stands over him
+  { cue: ['then', 'a', 'son'], draw(f, l, d) {
+    const pos = at('Poseidon,');
+    const cam = S.camera(l, [[0, 900, 600, 1.05], [d, 860, 620, 1.12]]);
+    const fall = easeOut(win(l, 0, 9));
+    const stars = [0, 1, 2].map(i => { const a = l / 6 + i * 2.1; return `<path transform="translate(${(230 + Math.cos(a) * 70).toFixed(0)} ${(830 + Math.sin(a) * 22).toFixed(0)})" d="M0,-16 L5,-5 L16,0 L5,5 L0,16 L-5,5 L-16,0 L-5,-5 Z" fill="#ffe27a" stroke="${INK}" stroke-width="3"/>`; }).join('');
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#beach)"/>
+      ${seaBand(560, 160, '#3f8fb0', '#bfe8f4', f, 7)}
+      <rect y="700" width="1920" height="380" fill="#e5c690"/><path d="M-50,712 Q500,690 980,712 Q1500,734 1980,708" fill="none" stroke="#f6f0dc" stroke-width="12" stroke-linecap="round"/>
+      ${motes(f, 14, { col: '#ffffff', seed: 9 })}`,
+      fg: `<g transform="translate(700 905) rotate(${lerp(-12, -86, fall).toFixed(1)}) scale(0.95)">${K.cycnus({ expr: 'ko', spear: false })}</g>
+      ${l > 8 ? stars : ''}
+      <ellipse cx="1300" cy="910" rx="170" ry="18" fill="#000" opacity="0.2"/>
+      <g transform="translate(1300 905) scale(0.95)">${K.adultAchilles({ expr: 'smirk', breathe: Math.sin(f / 16) * 2, look: -0.6 })}</g>
+      ${popLabel(f, pos, 520, 380, 76, 'SON OF POSEIDON', { rot: -3 })}
+      ${arrow(f, pos + 4, 'M470,440 Q420,660 300,770', 380, 'M318,738 L298,772 L336,768')}` };
+  } },
+  // 4 · "then Troy's greatest prince," – silhouettes at the gate of Troy, the sun behind
+  { cue: ['then', "troy's"], draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 980, 600, 1.1]]);
+    let walls = `<rect x="-100" y="560" width="2120" height="520" fill="#2a1f2e"/>`;
+    for (let x = -100; x < 2020; x += 80) walls += `<rect x="${x}" y="530" width="48" height="40" fill="#2a1f2e"/>`;
+    walls += `<rect x="560" y="430" width="200" height="200" fill="#2a1f2e"/><rect x="1160" y="430" width="200" height="200" fill="#2a1f2e"/>
+      <path d="M860,1080 L860,700 Q960,600 1060,700 L1060,1080 Z" fill="#170f1a"/>`;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#troy)"/>
+      <circle cx="960" cy="520" r="230" fill="#ffd59a"/><circle cx="960" cy="520" r="380" fill="#ffb26b" opacity="0.25"/>
+      ${walls}<rect y="960" width="1920" height="120" fill="#1b131d"/>
+      ${motes(f, 30, { col: '#ffb070', seed: 21 })}`,
+      fg: `<g filter="url(#sil)"><g transform="translate(960 965) scale(0.42)">${K.hero({ helmet: true, cape: false })}</g>
+      <g transform="translate(330 1250) scale(1.45)">${K.adultAchilles({})}</g></g>` };
+  } },
+  // 5 · "in front of his own father." – Priam on the wall, hands to his face
+  { cue: ['in', 'front'], draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 500, 1.09]]);
+    let wall = `<rect x="-60" y="760" width="2040" height="340" fill="#b9a68a" stroke="${INK}" stroke-width="5"/>`;
+    for (let x = -60; x < 1980; x += 200) wall += `<rect x="${x}" y="700" width="130" height="70" fill="#b9a68a" stroke="${INK}" stroke-width="5"/>`;
+    for (let r = 0; r < 3; r++) for (let x = -60 + (r % 2) * 90; x < 1980; x += 180) wall += `<path d="M${x},${790 + r * 90} l0,90 M${x - 60},${880 + r * 90} l200,0" stroke="#8e7c62" stroke-width="4"/>`;
+    const cloud = (x, y, s) => `<g transform="translate(${(x + f * 0.25).toFixed(1)} ${y}) scale(${s})" opacity="0.85"><ellipse cx="0" cy="0" rx="120" ry="34" fill="#fde3c2"/><ellipse cx="-50" cy="-22" rx="60" ry="36" fill="#fde3c2"/><ellipse cx="40" cy="-28" rx="70" ry="42" fill="#fde3c2"/></g>`;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#warm)"/>${cloud(300, 260, 1.2)}${cloud(1500, 200, 1)}${cloud(1700, 420, 0.7)}
+      <g fill="#c98f6a" stroke="${INK}" stroke-width="4"><rect x="180" y="420" width="150" height="360"/><rect x="1560" y="380" width="170" height="400"/></g>
+      <g fill="#c98f6a" stroke="${INK}" stroke-width="4">${[180, 220, 260, 300].map(x => `<rect x="${x}" y="396" width="26" height="28"/>`).join('')}${[1560, 1604, 1648, 1692].map(x => `<rect x="${x}" y="356" width="30" height="28"/>`).join('')}</g>
+      <path d="M1640,380 L1640,250" stroke="${INK}" stroke-width="6"/><path d="M1640,252 Q1700,262 1750,250 Q1720,280 1752,300 Q1700,290 1640,300 Z" fill="#7a3f8a" stroke="${INK}" stroke-width="4"/>
+      ${motes(f, 20, { col: '#fff3d6', seed: 33 })}`,
+      fg: `<g transform="translate(960 800) scale(1.55)">${K.priamBust({ blink: blink(f, [F(S.cue(W, 'father.').s) - 4]) })}</g>${wall}` };
+  } },
+  // 6 · "And you'd pick that life on purpose," – a signpost: long & quiet, or short & legendary
+  { cue: ['And', "you'd"], draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.02], [d, 1040, 560, 1.06]]);
+    const walk = easeOut(win(l, 6, d)), bob = Math.abs(Math.sin(l / 4)) * -7 * (walk < 1 ? 1 : 0);
+    const board = (x, y, dir, txt, col, colS) => `<g transform="translate(${x} ${y})"><path d="M0,0 L${dir * 300},0 L${dir * 345},45 L${dir * 300},90 L0,90 Z" fill="${col}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M0,70 L${dir * 300},70" stroke="${colS}" stroke-width="6"/>
+      ${S.word(dir * 160, 60, 40, txt, { sw: 7 })}</g>`;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#split)"/>
+      <path d="M-60,760 Q300,560 700,640 Q860,670 960,720 L960,1100 L-60,1100 Z" fill="#7fae5b" stroke="${INK}" stroke-width="5"/>
+      <g transform="translate(330 640)"><rect x="-70" y="-90" width="140" height="90" fill="#efe2c4" stroke="${INK}" stroke-width="4"/><path d="M-90,-90 L0,-150 L90,-90 Z" fill="#b5553a" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><rect x="-18" y="-50" width="36" height="50" fill="#7b4a2d"/></g>
+      <path d="M960,720 Q1300,640 1980,700 L1980,1100 L960,1100 Z" fill="#4a2a24" stroke="${INK}" stroke-width="5"/>
+      ${[1250, 1380, 1520, 1680, 1820].map((x, i) => `<path d="M${x},700 l${6 + i},-${150 + i * 20}" stroke="#1d1215" stroke-width="7" stroke-linecap="round"/><path d="M${x + 6 + i},${700 - 150 - i * 20} l-8,24 l16,0 Z" fill="#1d1215"/>`).join('')}
+      ${motes(f, 26, { col: '#ffb070', x0: 960, w: 960, seed: 41 })}
+      <rect x="944" y="90" width="32" height="890" fill="#8a5a36" stroke="${INK}" stroke-width="5"/>
+      ${board(930, 110, -1, 'LONG &amp; QUIET', '#9aa98a', '#7e8d6f')}${board(990, 222, 1, 'SHORT &amp; LEGENDARY', '#e2b04e', '#c08e30')}
+      <rect y="960" width="1920" height="120" fill="#3b2a22"/>`,
+      fg: `<ellipse cx="${lerp(860, 1320, walk)}" cy="985" rx="150" ry="16" fill="#000" opacity="0.25"/>
+      <g transform="translate(${lerp(860, 1320, walk).toFixed(1)} ${(980 + bob).toFixed(1)}) scale(0.95)">${K.adultAchilles({ expr: 'proud', look: 1, breathe: 0 })}</g>` };
+  } },
+  // 7 · "knowing exactly how short it is." – the Fates' thread: everyone else vs. you, and the shears
+  { cue: ['knowing'], draw(f, l, d) {
+    const p1 = at('knowing', 1, 6), p2 = at('short');
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 1010, 560, 1.08]]);
+    // everyone else: a big ball of thread · you: one short golden piece between the Fates' shears
+    let ball = `<circle cx="520" cy="600" r="170" fill="#c9c3d6" stroke="${INK}" stroke-width="6"/>`;
+    for (let i = 0; i < 7; i++) { const a = -70 + i * 22; ball += `<ellipse cx="520" cy="600" rx="${168 - Math.abs(i - 3) * 10}" ry="${60 + i * 14}" transform="rotate(${a} 520 600)" fill="none" stroke="#a49dba" stroke-width="5"/>`; }
+    ball += `<path d="M400,720 Q330,820 420,900 Q520,960 470,1040" fill="none" stroke="${INK}" stroke-width="12" stroke-linecap="round"/><path d="M400,720 Q330,820 420,900 Q520,960 470,1040" fill="none" stroke="#c9c3d6" stroke-width="6" stroke-linecap="round"/>`;
+    const open = lerp(22, 3, ease(win(l, 4, d - 2)));
+    const P = [1060, 600];
+    const blade = (sgn) => `<g transform="rotate(${(sgn * open).toFixed(2)} ${P[0]} ${P[1]})">
+      <path d="M${P[0]},${P[1]} L${P[0] + 420},${P[1] - sgn * 14} Q${P[0] + 450},${P[1] - sgn * 4} ${P[0] + 420},${P[1] + sgn * 16} Q${P[0] + 200},${P[1] + sgn * 30} ${P[0]},${P[1] + sgn * 26} Z" fill="#d6a04a" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M${P[0] + 40},${P[1] + sgn * 6} L${P[0] + 380},${P[1] - sgn * 6}" stroke="#f3cf83" stroke-width="5" stroke-linecap="round"/>
+      <path d="M${P[0]},${P[1]} L${P[0] - 90},${P[1] + sgn * 40}" stroke="${INK}" stroke-width="22" stroke-linecap="round"/><path d="M${P[0]},${P[1]} L${P[0] - 90},${P[1] + sgn * 40}" stroke="#a9742e" stroke-width="12" stroke-linecap="round"/>
+      <ellipse cx="${P[0] - 160}" cy="${P[1] + sgn * 64}" rx="74" ry="46" fill="none" stroke="${INK}" stroke-width="24"/><ellipse cx="${P[0] - 160}" cy="${P[1] + sgn * 64}" rx="74" ry="46" fill="none" stroke="#a9742e" stroke-width="13"/></g>`;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#plum)"/><circle cx="960" cy="540" r="520" fill="#4a2f5a" opacity="0.45" filter="url(#soft)"/>${motes(f, 22, { col: '#e9d8ff', seed: 51 })}`,
+      fg: `${ball}
+      ${blade(1)}${blade(-1)}<circle cx="${P[0]}" cy="${P[1]}" r="14" fill="#f3cf83" stroke="${INK}" stroke-width="5"/>
+      <path d="M1290,606 L1360,606" stroke="${INK}" stroke-width="15" stroke-linecap="round"/><path d="M1290,606 L1360,606" stroke="#f0c75c" stroke-width="8" stroke-linecap="round"/>
+      ${popLabel(f, p1, 520, 360, 70, 'EVERYONE ELSE', { rot: -3 })}
+      ${popLabel(f, p2, 1330, 860, 96, 'YOU', { fill: '#f6d35b', rot: 4 })}
+      ${arrow(f, p2 + 4, 'M1330,770 Q1345,700 1326,640', 140, 'M1308,664 L1326,636 L1346,662')}` };
+  } },
+  // 8 · "But right now, you're a baby," – the black river Styx, the baby hangs by one heel
+  { cue: ['But', 'right'], draw(f, l, d) {
+    const tag = at('baby,');
+    const cam = S.camera(l, [[0, 960, 470, 1.18], [d, 960, 440, 1.25]]);
+    const sway = Math.sin(l / 12) * 3;
+    return { cam, bg: styx(f, 760),
+      fg: `<g transform="translate(960 150) rotate(${sway.toFixed(2)})">${K.babyHang({ expr: 'neutral', blink: blink(f, [tag + 14]), swing: Math.sin(l / 8) })}</g>
+      ${hangHand(960, 150)}
+      ${popLabel(f, tag, 600, 400, 80, 'ACHILLES', { sub: '(still you)' })}` };
+  } },
+  // 9 · "hanging upside down by one heel" – wider: Thetis on a rock above the river, holding him out
+  { cue: ['hanging'], draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 600, 1.14], [d, 920, 610, 1.2]]);
+    const tx = 760, ty = 700, hx = tx + 170, hy = ty - 262;
+    // v2: a moonlit sky above the river, so this cut reads as a cut (v1: three dark Styx shots in a row, the tool saw one)
+    return { cam, bg: styx(f, 900) + `<rect width="1920" height="900" fill="url(#moonsky)"/><circle cx="1180" cy="300" r="300" fill="#cfe0f2" opacity="0.18" filter="url(#soft)"/>
+      <circle cx="1180" cy="300" r="150" fill="#e6eef6"/><circle cx="1130" cy="270" r="26" fill="#cfdbe8"/><circle cx="1230" cy="340" r="18" fill="#cfdbe8"/>
+      ${seaBand(900, 180, '#123039', '#7fb8c4', f, 63)}<path d="M-60,1100 L-60,760 Q120,700 340,${ty - 4} Q560,${ty - 14} 700,${ty} Q820,${ty + 6} 860,${ty + 40} Q880,${ty + 120} 840,${ty + 240} L860,1100 Z" fill="#1d2a30" stroke="${INK}" stroke-width="5"/>
+      <path d="M120,${ty + 40} Q260,${ty + 20} 420,${ty + 30}" fill="none" stroke="#2d3f46" stroke-width="10" stroke-linecap="round"/>`,
+      fg: `<g transform="translate(${tx} ${ty})">${K.thetis({ holdOut: true, expr: 'worried', blink: blink(f, [S.cue(W, 'heel').s * FPS]) })}</g>
+      <g transform="translate(${hx} ${hy}) rotate(${(Math.sin(l / 10) * 3).toFixed(2)}) scale(0.55)">${K.babyHang({ expr: 'neutral', swing: Math.sin(l / 8) })}</g>
+      ${K.hand(hx + 2, hy + 18, 14)}` };
+  } },
+  // 10 · "over the river of the dead," – dipped: everything goes under except the heel → THE HEEL (stays dry)
+  { cue: ['over'], draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 520, 1.15], [d, 960, 560, 1.2]]);
+    const dip = ease(win(l, 3, 18)), y0 = lerp(150, 600, dip), water = 680, lab = SH[9].a + 20;
+    const ring = (k) => { const t = win(l, 14 + k * 5, 50 + k * 5); return t > 0 && t < 1 ? `<ellipse cx="960" cy="${water}" rx="${(60 + t * 420).toFixed(0)}" ry="${(10 + t * 50).toFixed(0)}" fill="none" stroke="#7fd0c8" stroke-width="5" opacity="${(0.7 * (1 - t)).toFixed(2)}"/>` : ''; };
+    // v2: a real splash when he goes under – white droplets in arcs and a flash on the water
+    const sp = win(l, 11, 30);
+    const drops = sp > 0 && sp < 1 ? Array.from({ length: 16 }, (_, i) => { const a = Math.PI * (0.12 + 0.76 * S.rnd(i + 200)), v = 260 + 260 * S.rnd(i + 300);
+      const x = 960 + Math.cos(a) * v * sp * (i % 2 ? 1 : -1), y = water - Math.sin(a) * v * sp * 1.4 + 900 * sp * sp;
+      return `<ellipse cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="${(9 + 8 * S.rnd(i)).toFixed(0)}" ry="${(12 + 8 * S.rnd(i)).toFixed(0)}" fill="#e8fbf8" stroke="${INK}" stroke-width="3"/>`; }).join('') : '';
+    const flash = sp > 0 && sp < 1 ? `<ellipse cx="960" cy="${water}" rx="${(200 + 500 * sp).toFixed(0)}" ry="${(40 + 90 * sp).toFixed(0)}" fill="#bff3ec" opacity="${(0.7 * (1 - sp)).toFixed(2)}"/>` : '';
+    return { cam, bg: styx(f, water, true),
+      fg: `<g transform="translate(960 ${y0.toFixed(1)})">${K.babyHang({ expr: 'surprised', swing: 0 })}</g>
+      <rect x="-200" y="${water}" width="2320" height="600" fill="url(#styxw)"/>${seaBand(water, 380, 'none', '#3f8f92', f, 61)}
+      ${ring(0)}${ring(1)}${ring(2)}${flash}${drops}${hangHand(960, y0)}
+      <path d="M-200,${water} L2120,${water}" stroke="#5fb3b0" stroke-width="5" opacity="0.6"/>
+      ${popLabel(f, lab, 1330, 330, 84, 'THE HEEL', { sub: '(stays dry)', rot: 3 })}
+      ${arrow(f, lab + 4, 'M1240,400 Q1080,420 990,' + (y0 - 4).toFixed(0), 290, `M1010,${(y0 - 30).toFixed(0)} L988,${(y0 - 4).toFixed(0)} L1018,${(y0 + 12).toFixed(0)}`)}` };
+  } },
+  // 11 · "and you're already screaming for attention." – pulled out, dripping, screaming
+  { cue: ['and', "you're", 'already'], draw(f, l, d) {
+    const loud = at('screaming');
+    const cam = S.camera(l, [[0, 960, 470, 1.25], [d, 960, 470, 1.32]]);
+    const shake = l > (loud - SH[10].a) ? Math.sin(l * 2.7) * 4 : 0;
+    let drops = '';
+    for (let i = 0; i < 9; i++) { const a = S.rnd(i + 70), y = 520 + ((l * (6 + a * 5) + a * 300) % 380); drops += `<ellipse cx="${(890 + a * 150).toFixed(0)}" cy="${y.toFixed(0)}" rx="6" ry="10" fill="#9fe0dc" stroke="${INK}" stroke-width="2.5"/>`; }
+    const lines = l > (loud - SH[10].a) ? [0, 1, 2, 3, 4, 5].map(i => { const a = -2.6 + i * 0.4; return `<path d="M${(960 + Math.cos(a) * 150).toFixed(0)},${(560 + Math.sin(-a) * -150).toFixed(0)} l${(Math.cos(a) * 50).toFixed(0)},${(Math.sin(-a) * -50).toFixed(0)}" stroke="#fff" stroke-width="9" stroke-linecap="round"/>`; }).join('') : '';
+    // v2: the scream gets a comic burst behind him (a clear cut away from the dark river)
+    let rays = '';
+    for (let i = 0; i < 18; i++) { const a0 = (i / 18) * Math.PI * 2 + l * 0.01, a1 = a0 + Math.PI / 18;
+      rays += `<path d="M960,480 L${(960 + Math.cos(a0) * 2400).toFixed(0)},${(480 + Math.sin(a0) * 2400).toFixed(0)} L${(960 + Math.cos(a1) * 2400).toFixed(0)},${(480 + Math.sin(a1) * 2400).toFixed(0)} Z" fill="#fff6d8" opacity="0.28"/>`; }
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#burst)"/>${rays}`,
+      fg: `<g transform="translate(${(960 + shake).toFixed(1)} 150)">${K.babyHang({ expr: l > (loud - SH[10].a) - 4 ? 'scream' : 'surprised', swing: Math.sin(l / 3) * 0.6 })}</g>
+      ${drops}${hangHand(960 + shake * 0.3, 150)}
+      <g transform="translate(0 ${(-80).toFixed(0)})">${lines}</g>
+      ${popLabel(f, loud + 6, 1330, 420, 110, 'LOUD', { rot: 8, fill: '#f6d35b' })}` };
+  } },
+];
+
+// the black river Styx: dark teal, mist, a faint glow
+function styx(f, water, noWater) {
+  let mist = '';
+  for (let i = 0; i < 8; i++) { const a = S.rnd(i + 80); mist += `<ellipse cx="${((a * 2200 + f * (0.6 + a)) % 2400 - 240).toFixed(0)}" cy="${(water - 30 + a * 60).toFixed(0)}" rx="${(260 + a * 200).toFixed(0)}" ry="${(30 + a * 20).toFixed(0)}" fill="#cfe8e4" opacity="${(0.06 + a * 0.06).toFixed(2)}" filter="url(#soft)"/>`; }
+  return `<rect width="1920" height="1080" fill="url(#styxs)"/>
+    <circle cx="960" cy="${water - 40}" r="420" fill="#2f8f8a" opacity="0.18" filter="url(#soft)"/>
+    ${noWater ? '' : `<rect x="-200" y="${water}" width="2320" height="600" fill="url(#styxw)"/>${seaBand(water, 380, 'none', '#3f8f92', f, 61)}`}
+    ${mist}${motes(f, 18, { col: '#bfe9e2', seed: 91 })}`;
+}
+// Thetis' hand around the heel, her forearm coming in from the top of the frame
+function hangHand(x, y) {
+  // the hand grips the ankle, so the foot and the heel stay visible above it
+  return `<path d="M${x + 150},-260 L${x + 26},${y + 30}" stroke="${INK}" stroke-width="44" stroke-linecap="round"/>
+    <path d="M${x + 150},-260 L${x + 26},${y + 30}" stroke="${C.skin}" stroke-width="36" stroke-linecap="round"/>
+    ${K.hand(x + 6, y + 36, 24)}<path d="M${x - 12},${y + 32} q8,10 20,8" fill="none" stroke="${INK}" stroke-width="3.5" stroke-linecap="round"/>`;
+}
+
+function frame(f) {
+  let i = SH.length - 1;
+  while (i > 0 && f < SH[i].a) i--;
+  const sh = SH[i];
+  const out = SHOTS[i].draw(f, f - sh.a, sh.b - sh.a);
+  return `<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>${S.DEFS}
+    ${grad('dusk', [[0, '#2d2c3b'], [0.45, '#5f596f'], [0.62, '#b8705a'], [0.7, '#f0a060']])}
+    ${grad('day', [[0, '#8cc6e6'], [1, '#e2f2ef']])}
+    ${grad('beach', [[0, '#7cb9de'], [0.5, '#cfe9f2'], [1, '#cfe9f2']])}
+    ${grad('troy', [[0, '#231a33'], [0.35, '#6b3a5e'], [0.55, '#d6705a'], [0.7, '#f4a755']])}
+    ${grad('warm', [[0, '#f1b27a'], [1, '#f8d6a6']])}
+    ${grad('split', [[0, '#8fc6e6'], [1, '#f6c38a']], 1, 0)}
+    ${grad('plum', [[0, '#120c19'], [1, '#2a1c33']])}
+    ${grad('styxs', [[0, '#050b0e'], [1, '#0f2a31']])}
+    ${grad('styxw', [[0, '#0d2b33'], [1, '#040b0e']])}
+    ${grad('moonsky', [[0, '#1d1a3c'], [0.7, '#4a4378'], [1, '#6b6296']])}
+    <radialGradient id="burst" cx="0.5" cy="0.45" r="0.7"><stop offset="0" stop-color="#fff3c4"/><stop offset="0.35" stop-color="#f6c453"/><stop offset="1" stop-color="#e0702e"/></radialGradient>
+    <filter id="sil"><feColorMatrix type="matrix" values="0 0 0 0 0.09  0 0 0 0 0.06  0 0 0 0 0.10  0 0 0 1 0"/></filter>
+  </defs>
+  <g filter="url(#grade)"><g transform="${out.cam}">${out.bg}${out.fg}</g></g>
+  ${S.vignette()}
+  ${f < 3 ? `<rect width="1920" height="1080" fill="#000" opacity="${(1 - f / 3).toFixed(2)}"/>` : ''}
+</svg>`;
+}
+
+const stage = document.getElementById('stage');
+window.READY = (async () => {
+  const url = new URLSearchParams(location.search).get('words');
+  const r = await S.loadWords(TEXT, url);
+  W = r.words;
+  SH = SHOTS.map((s, i) => ({ a: i === 0 ? 0 : F(S.cue(W, s.cue.join(' ')).s, -2) }));
+  END = F(W[W.length - 1].e + 0.8);
+  SH.forEach((s, i) => { s.b = i < SH.length - 1 ? SH[i + 1].a : END; });
+  window.TOTAL_FRAMES = END;
+  window.CUES = { realVoice: r.real, shots: SH.map((s, i) => ({ shot: i + 1, start: +(s.a / FPS).toFixed(2), end: +(s.b / FPS).toFixed(2) })) };
+  await document.fonts.ready;
+  stage.innerHTML = frame(0);
+})();
+window.renderFrame = async f => { stage.innerHTML = frame(f); };
+</script>
+</body>
+</html>

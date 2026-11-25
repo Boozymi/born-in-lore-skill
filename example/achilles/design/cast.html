@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – cast sheet</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  #stage { width: 1920px; height: 1080px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script>
+// Cast sheet: every character of the Achilles pieces side by side, on our own parchment set.
+const { C, INK } = window.CAST;
+const q = new URLSearchParams(location.search);
+const EXPR = q.get('expr'); // optional: force one expression on everyone (for face checks)
+
+function meander(y, h, col, bg) {
+  let s = `<rect x="0" y="${y}" width="1920" height="${h}" fill="${bg}"/>`;
+  const k = h * 0.62, top = y + (h - k) / 2;
+  for (let x = -10; x < 1930; x += k * 1.25) {
+    const a = k * 0.18;
+    s += `<path d="M${x},${top + k} L${x},${top} L${x + k},${top} L${x + k},${top + k - a} L${x + a * 1.6},${top + k - a} L${x + a * 1.6},${top + a * 1.6} L${x + k - a * 1.6},${top + a * 1.6}"
+      fill="none" stroke="${col}" stroke-width="${a * 0.9}" stroke-linejoin="miter"/>
+      <path d="M${x},${top + k} L${x + k * 1.25},${top + k}" stroke="${col}" stroke-width="${a * 0.9}"/>`;
+  }
+  return s;
+}
+
+function sheet() {
+  const floor = 930;
+  const cast = [
+    ['BABY', 175, C => window.CAST.babyAchilles({ expr: EXPR || 'happy' })],
+    ['AGE 6', 450, () => window.CAST.kidAchilles({ expr: EXPR || 'proud' })],
+    ['TEEN · "PYRRHA"', 735, () => window.CAST.teenPyrrha(EXPR ? { expr: EXPR } : {})],
+    ['ADULT', 1075, () => window.CAST.adultAchilles(EXPR ? { expr: EXPR } : {})],
+    ['THETIS', 1430, () => window.CAST.thetis(EXPR ? { expr: EXPR } : {})],
+    ['ODYSSEUS', 1735, () => window.CAST.odysseus(EXPR ? { expr: EXPR } : {})],
+  ];
+  let motes = '';
+  for (let i = 0; i < 40; i++) {
+    const a = Math.sin(i * 12.9898) * 43758.5453, fr = a - Math.floor(a);
+    const b = Math.sin(i * 78.233) * 12345.678, fr2 = b - Math.floor(b);
+    motes += `<circle cx="${(fr * 1920).toFixed(0)}" cy="${(160 + fr2 * 700).toFixed(0)}" r="${(2 + fr2 * 3).toFixed(1)}" fill="#fff" opacity="${(0.2 + fr * 0.35).toFixed(2)}"/>`;
+  }
+  return `<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4e5c6"/><stop offset="1" stop-color="#e3cb9f"/></linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b98350"/><stop offset="1" stop-color="#9a6a3f"/></linearGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.45" r="0.78"><stop offset="0.62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#3b2412" stop-opacity="0.3"/></radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#wall)"/>
+  ${meander(118, 46, '#f4e5c6', C.teal)}
+  <rect y="${floor}" width="1920" height="${1080 - floor}" fill="url(#floor)"/>
+  <rect y="${floor}" width="1920" height="8" fill="#000" opacity="0.12"/>
+  <text x="60" y="84" font-family="Segoe UI Black, Arial Black, sans-serif" font-size="46" fill="#fff" stroke="${INK}" stroke-width="10" paint-order="stroke" stroke-linejoin="round">WHAT IF YOU WERE BORN AS ACHILLES?</text>
+  <text x="1860" y="84" text-anchor="end" font-family="Segoe UI, Arial, sans-serif" font-weight="700" font-size="30" fill="${INK}" opacity="0.75">cast sheet · drawn in code</text>
+  ${motes}
+  ${cast.map(([name, x, fn]) => `
+    <ellipse cx="${x}" cy="${floor + 6}" rx="${name === 'ADULT' ? 150 : 95}" ry="16" fill="#000" opacity="0.18"/>
+    <g transform="translate(${x} ${floor})">${fn()}</g>
+    <text x="${x}" y="1018" text-anchor="middle" font-family="Segoe UI Black, Arial Black, sans-serif" font-size="34" fill="#fff" stroke="${INK}" stroke-width="9" paint-order="stroke" stroke-linejoin="round">${name}</text>`).join('')}
+  <rect width="1920" height="1080" fill="url(#vig)"/>
+</svg>`;
+}
+
+const stage = document.getElementById('stage');
+window.TOTAL_FRAMES = 1;
+window.renderFrame = async () => { stage.innerHTML = sheet(); };
+window.READY = document.fonts.ready.then(() => window.renderFrame(0));
+</script>
+</body>
+</html>

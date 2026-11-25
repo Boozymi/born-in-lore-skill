@@ -1,0 +1,16 @@
+{
+  "title": "What If You Were Born as Achilles? | Greek Mythology",
+  "pieces": [
+    { "id": "hook",     "scene": "scenes/hook.html",     "text": "1_hook.txt",     "take": "hook.mp3",     "words": "hook",     "chapter": "Prologue: Half a God" },
+    { "id": "prologue", "scene": "scenes/prologue.html", "text": "0_prologue.txt", "take": "prologue.mp3", "words": "prologue" },
+    { "id": "ch1",      "scene": "scenes/chapter1.html", "text": "2_chapter1.txt", "take": "part.mp3",     "words": "part",     "chapter": "I · Pyrrha" },
+    { "id": "ch2",      "scene": "scenes/chapter2.html", "text": "3_ch2.txt",      "take": "ch2.mp3",      "words": "ch2",      "chapter": "II · Fifty Ships" },
+    { "id": "ch3",      "scene": "scenes/chapter3.html", "text": "4_ch3.txt",      "take": "ch3.mp3",      "words": "ch3",      "chapter": "III · The Prize" },
+    { "id": "ch4",      "scene": "scenes/chapter4.html", "text": "5_ch4.txt",      "take": "ch4.mp3",      "words": "ch4",      "chapter": "IV · The Lyre" },
+    { "id": "ch5",      "scene": "scenes/chapter5.html", "text": "6_ch5.txt",      "take": "ch5.mp3",      "words": "ch5",      "chapter": "V · The Armor" },
+    { "id": "ch6",      "scene": "scenes/chapter6.html", "text": "7_ch6.txt",      "take": "ch6.mp3",      "words": "ch6",      "chapter": "VI · Three Screams" },
+    { "id": "ch7",      "scene": "scenes/chapter7.html", "text": "8_ch7.txt",      "take": "ch7.mp3",      "words": "ch7",      "chapter": "VII · Hector" },
+    { "id": "ch8",      "scene": "scenes/chapter8.html", "text": "9_ch8.txt",      "take": "ch8.mp3",      "words": "ch8",      "chapter": "VIII · Priam" },
+    { "id": "ch9",      "scene": "scenes/chapter9.html", "text": "10_ch9.txt",     "take": "ch9.mp3",      "words": "ch9",      "chapter": "IX · The Heel" }
+  ]
+}

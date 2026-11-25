@@ -1,0 +1,8 @@
+{
+  "name": "born-as-achilles",
+  "private": true,
+  "description": "What If You Were Born as Achilles? – a whole Born-in-Lore-style episode drawn in code. Build: node tools/build_episode.mjs (Windows, macOS, Linux)",
+  "dependencies": {
+    "puppeteer-core": "^23.0.0"
+  }
+}

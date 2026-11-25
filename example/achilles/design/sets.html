@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>sets sheet</title>
+<style>html,body{margin:0;background:#111;overflow:hidden}#stage{width:1920px;height:1080px}svg{display:block}</style></head>
+<body><div id="stage"></div>
+<script src="../lib/cast.js"></script><script src="../lib/scene.js"></script><script src="../lib/sets.js"></script>
+<script>
+// every set of lib/sets.js as a thumbnail (graded like the scenes), ?page=1 for the second page
+const S = window.SCENE, T = window.SETS;
+const f = 40;
+const pages = [[
+  ['styx', T.styx(f, 760)], ['styxBank', T.styxBank(f)], ['palace skyros', T.palace(f, {})], ['palace phthia', T.palace(f, { place: 'phthia', mid: true })],
+  ['palace phthia night', T.palace(f, { place: 'phthia', night: true })], ['night', T.night(f)], ['beach day + troy', T.beach(f, { troy: true })], ['beach dusk', T.beach(f, { time: 'dusk' })],
+  ['beach dawn', T.beach(f, { time: 'dawn' })], ['troyDusk', T.troyDusk(f)], ['troyWall back+front', T.troyWallBack(f) + T.troyWallFront(760)], ['troyGate day', T.troyGate(f)],
+  ['troyGate dusk', T.troyGate(f, { time: 'dusk' })], ['camp dusk', T.camp(f)], ['camp night', T.camp(f, { time: 'night' })], ['camp dawn', T.camp(f, { time: 'dawn' })],
+], [
+  ['tent night + door', T.tentInside(f, { door: true })], ['tent day', T.tentInside(f, { night: false })], ['cave day', T.cave(f)], ['cave dusk', T.cave(f, { time: 'dusk' })],
+  ['meadow', T.meadow(f)], ['meadow gold', T.meadow(f, { time: 'gold' })], ['olympus', T.olympus(f)], ['olympus dark', T.olympus(f, { dark: true })],
+  ['forge', T.forge(f)], ['underworld', T.underworld(f)], ['battlefield', T.battlefield(f)], ['battlefield dusk', T.battlefield(f, { time: 'dusk' })],
+  ['trench', T.trench(f)], ['grave', T.grave(f)], ['parchmentTable', T.parchmentTable(f)], ['gagBg heroic', T.gagBg(f, 'heroic', '#ffe7a8', 960, 560)],
+]];
+const page = +(new URLSearchParams(location.search).get('page') || 0);
+function frame() {
+  const items = pages[page];
+  let s = `<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg"><defs>${S.DEFS}${T.defs()}</defs><rect width="1920" height="1080" fill="#111"/>`;
+  items.forEach(([name, svg], i) => {
+    const x = (i % 4) * 480, y = Math.floor(i / 4) * 270;
+    s += `<svg x="${x + 4}" y="${y + 4}" width="472" height="262" viewBox="0 0 1920 1080"><defs><clipPath id="cl${i}"><rect width="1920" height="1080"/></clipPath></defs><g clip-path="url(#cl${i})"><g filter="url(#grade)">${svg}</g>${S.vignette()}</g></svg>
+      <text x="${x + 14}" y="${y + 30}" font-family="Segoe UI" font-size="20" font-weight="700" fill="#fff" stroke="#000" stroke-width="4" paint-order="stroke">${name}</text>`;
+  });
+  return s + '</svg>';
+}
+window.TOTAL_FRAMES = 1;
+window.READY = (async () => { await document.fonts.ready; document.getElementById('stage').innerHTML = frame(); })();
+window.renderFrame = async () => {};
+</script></body></html>

@@ -1,0 +1,359 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – piece 2: chapter I "Pyrrha"</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  #stage { width: 1920px; height: 1080px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/scene.js"></script>
+<script>
+// Piece 2 – chapter I "Pyrrha" (SCRIPT.md). The chapter card runs first (10 / 25 / 6 frames, measured
+// on Born in Lore), then the narration starts at OFF seconds. Timings: ?words=../voice/part/words.json
+const { C, INK } = window.CAST;
+const K = window.CAST;
+const S = window.SCENE;
+const { ease, easeOut, win, lerp, popLabel, arrow, strike, stamp, motes, blink } = S;
+const FPS = 30, OFF = 1.6;
+const TEXT = `Then a seer says Troy can't fall without you. So your mom does what any goddess would do. She hides you. On an island, in a palace full of princesses. As a girl. Your new name is Pyrrha. You're a teenager. It's not going great. Then Odysseus shows up with gifts. Dresses, jewelry, and, for some reason, one shield. Somewhere outside, a war trumpet blows. Every girl in the room runs. One of them grabs a spear. Before you sail, your mom tells you half her secret. Two lives. A long one at home, and nobody ever learns your name. Or a short one, and they sing about you forever. You pick fast. You always do. Congratulations, Pyrrha. You're going to war.`;
+
+let W, SH = [], END = 0;
+const F = (t, off = 0) => Math.round((t + OFF) * FPS) + off;
+const at = (phrase, n = 1, off = 2) => F(S.cue(W, phrase, n).s, off);
+const grad = (id, stops, x2 = 0, y2 = 1) => `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join('')}</linearGradient>`;
+const bob = (f, k = 0) => Math.sin((f + k * 13) / 14) * 3.5;
+// v2: sunburst backdrops for the gag close-ups (Born in Lore cuts to rays/colour for its text jokes)
+function rays(f, cx, cy, n, col, o = 0.25) {
+  let s = '';
+  for (let i = 0; i < n; i++) { const a0 = (i / n) * Math.PI * 2 + f * 0.004, a1 = a0 + Math.PI / n;
+    s += `<path d="M${cx},${cy} L${(cx + Math.cos(a0) * 2600).toFixed(0)},${(cy + Math.sin(a0) * 2600).toFixed(0)} L${(cx + Math.cos(a1) * 2600).toFixed(0)},${(cy + Math.sin(a1) * 2600).toFixed(0)} Z" fill="${col}" opacity="${o}"/>`; }
+  return s;
+}
+
+// ---------- sets ----------
+function seaBand(y, h, col, streak, f, seed = 0) {
+  let s = `<rect x="-400" y="${y}" width="2720" height="${h}" fill="${col}"/>`;
+  for (let i = 0; i < 22; i++) {
+    const a = S.rnd(i + seed), b = S.rnd(i * 5.1 + seed);
+    const x = -200 + ((a * 2400 + f * (0.4 + b * 0.5)) % 2400), yy = y + 10 + b * (h - 20);
+    s += `<path d="M${x.toFixed(0)},${yy.toFixed(0)} l${(40 + a * 90).toFixed(0)},0" stroke="${streak}" stroke-width="${(2 + b * 3).toFixed(1)}" stroke-linecap="round" opacity="${(0.25 + a * 0.4).toFixed(2)}"/>`;
+  }
+  return s;
+}
+function meander(y, h, col, bg) {
+  let s = `<rect x="-200" y="${y}" width="2320" height="${h}" fill="${bg}"/>`;
+  const k = h * 0.62, top = y + (h - k) / 2, a = k * 0.18;
+  for (let x = -200; x < 2120; x += k * 1.25) s += `<path d="M${x},${top + k} L${x},${top} L${x + k},${top} L${x + k},${top + k - a} L${x + a * 1.6},${top + k - a} L${x + a * 1.6},${top + a * 1.6} L${x + k - a * 1.6},${top + a * 1.6}" fill="none" stroke="${col}" stroke-width="${a * 0.9}"/><path d="M${x},${top + k} L${x + k * 1.25},${top + k}" stroke="${col}" stroke-width="${a * 0.9}"/>`;
+  return s;
+}
+function column(x, y0, y1) {
+  let s = `<rect x="${x - 46}" y="${y0}" width="92" height="${y1 - y0}" fill="#e2d2b0" stroke="${INK}" stroke-width="5"/>`;
+  for (const dx of [-24, 0, 24]) s += `<path d="M${x + dx},${y0 + 30} L${x + dx},${y1 - 30}" stroke="#c4b08a" stroke-width="6"/>`;
+  s += `<rect x="${x - 64}" y="${y0 - 26}" width="128" height="30" rx="6" fill="#dcc89e" stroke="${INK}" stroke-width="5"/><rect x="${x - 60}" y="${y1 - 6}" width="120" height="26" fill="#dcc89e" stroke="${INK}" stroke-width="5"/>`;
+  return s;
+}
+function palace(f, o = {}) {
+  let tiles = '';
+  for (let x = -200; x < 2120; x += 120) tiles += `<path d="M${x},860 L${x - 60},1080" stroke="#b78a5c" stroke-width="4"/>`;
+  return `<rect width="1920" height="1080" fill="url(#hall)"/>${meander(70, 50, '#f4e5c6', C.teal)}
+    ${o.window ? '' : `<defs><clipPath id="win"><path d="M820,670 L820,390 A140,140 0 0 1 1100,390 L1100,670 Z"/></clipPath></defs>
+      <path d="M820,670 L820,390 A140,140 0 0 1 1100,390 L1100,670 Z" fill="#cfe6ee"/>
+      <path d="M820,520 Q960,470 1100,520 L1100,670 L820,670 Z" fill="#9cc49a" clip-path="url(#win)"/>
+      <path d="M820,670 L820,390 A140,140 0 0 1 1100,390 L1100,670 Z" fill="none" stroke="${INK}" stroke-width="6"/>
+      <rect x="800" y="664" width="320" height="18" rx="4" fill="#efe2c4" stroke="${INK}" stroke-width="5"/>`}
+    ${column(170, 150, 860)}${column(1750, 150, 860)}${o.mid ? column(560, 150, 860) + column(1360, 150, 860) : ''}
+    <rect y="860" width="1920" height="220" fill="#a8743f"/><rect y="860" width="1920" height="10" fill="#000" opacity="0.15"/>${tiles}
+    <rect width="1920" height="1080" fill="url(#hallshade)"/>
+    ${motes(f, 18, { col: '#fff6dc', seed: o.seed || 5 })}`;
+}
+function shadow(x, y, w) { return `<ellipse cx="${x}" cy="${y + 6}" rx="${w}" ry="14" fill="#000" opacity="0.2"/>`; }
+function ship(x, y, s, o = {}) {
+  const hull = '#5a3a26', hullS = '#3f281a';
+  let g = `<g transform="translate(${x} ${y}) scale(${s})">`;
+  g += `<rect x="-6" y="-520" width="14" height="440" fill="${C.wood}" stroke="${INK}" stroke-width="5"/>`;
+  g += `<path d="M-230,-470 Q0,-500 230,-470 L220,-230 Q0,-250 -220,-230 Z" fill="${o.sail || '#efe2c4'}" stroke="${INK}" stroke-width="5"/>`;
+  if (o.emblem) g += `<path d="M-70,-360 q17,-20 35,0 q17,20 35,0 q17,-20 35,0 q17,20 35,0" fill="none" stroke="${C.teal}" stroke-width="12" stroke-linecap="round"/>`;
+  g += `<path d="M-420,-80 Q-200,-40 0,-40 Q240,-40 400,-110 Q430,-150 410,-200 Q440,-170 450,-120 Q380,40 0,40 Q-300,40 -440,-40 Q-470,-90 -500,-130 Q-450,-110 -420,-80 Z" fill="${hull}" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>`;
+  g += `<path d="M-400,-50 Q0,0 380,-80" fill="none" stroke="${C.bronze}" stroke-width="8"/>`;
+  g += `<ellipse cx="330" cy="-60" rx="20" ry="12" fill="#fff" stroke="${INK}" stroke-width="4"/><circle cx="334" cy="-60" r="7" fill="${INK}"/>`;
+  for (let i = -6; i <= 5; i++) g += `<path d="M${i * 60},-10 l-30,90" stroke="${hullS}" stroke-width="7" stroke-linecap="round"/>`;
+  g += `<path d="M-420,-84 Q0,-44 400,-112" fill="none" stroke="${INK}" stroke-width="5"/>`;
+  return g + `</g>`;
+}
+// a scroll that unrolls (u 0..1); content drawn inside a clip
+function scroll(x, y, w, h, u, title, content, o = {}) {
+  const hh = Math.max(8, h * easeOut(u)), cid = 'sc' + Math.round(x);
+  return `<g transform="translate(${x} ${y})" opacity="${o.dim ? 0.55 : 1}">
+    <defs><clipPath id="${cid}"><rect x="${-w / 2}" y="${-hh / 2}" width="${w}" height="${hh}"/></clipPath></defs>
+    <rect x="${-w / 2}" y="${-hh / 2}" width="${w}" height="${hh}" fill="${o.paper || '#f1e2bf'}" stroke="${INK}" stroke-width="5"/>
+    <g clip-path="url(#${cid})">${S.word(0, -h / 2 + 80, 54, title, { fill: o.titleCol || '#fff', sw: 10 })}${content}</g>
+    <rect x="${-w / 2 - 22}" y="${-hh / 2 - 26}" width="${w + 44}" height="34" rx="17" fill="#c9a46c" stroke="${INK}" stroke-width="5"/>
+    <rect x="${-w / 2 - 22}" y="${hh / 2 - 8}" width="${w + 44}" height="34" rx="17" fill="#c9a46c" stroke="${INK}" stroke-width="5"/></g>`;
+}
+function vase(x, y, s) {
+  return `<g transform="translate(${x} ${y}) scale(${s})">
+    <path d="M-40,-200 L40,-200 L34,-170 Q110,-130 100,-20 Q90,70 40,100 L50,130 L-50,130 L-40,100 Q-90,70 -100,-20 Q-110,-130 -34,-170 Z" fill="#c8662e" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M-34,-170 Q-90,-170 -96,-110 M34,-170 Q90,-170 96,-110" fill="none" stroke="${INK}" stroke-width="8"/>
+    <rect x="-88" y="-60" width="176" height="10" fill="${INK}"/><rect x="-88" y="70" width="176" height="8" fill="${INK}"/>
+    <g fill="${INK}"><circle cx="-10" cy="-30" r="16"/><path d="M-30,-26 Q-50,-60 -10,-58 Q30,-62 14,-30 Z"/><path d="M-26,-10 L8,-10 L16,40 L4,40 L-2,10 L-10,40 L-22,40 Z"/>
+    <circle cx="-48" cy="0" r="24"/><path d="M28,-60 L36,60" stroke="${INK}" stroke-width="6"/><path d="M28,-74 l6,16 l-12,0 Z"/></g></g>`;
+}
+
+// ---------- shots ----------
+const SHOTS = [
+  // 1 · "Then a seer says Troy can't fall without you." – smoky tent, the seer points at you
+  { cue: 'Then a seer', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 1000, 520, 1.12]]);
+    let smoke = '';
+    for (let i = 0; i < 7; i++) { const a = S.rnd(i + 3); smoke += `<ellipse cx="${(300 + a * 1400 + Math.sin((f + i * 40) / 50) * 40).toFixed(0)}" cy="${(260 + a * 300 - l * 0.6).toFixed(0)}" rx="${(160 + a * 140).toFixed(0)}" ry="${(40 + a * 30).toFixed(0)}" fill="#c9b8d6" opacity="0.12" filter="url(#soft)"/>`; }
+    const fire = (x, y) => `<g transform="translate(${x} ${y})"><path d="M-70,0 L70,0 L50,60 L-50,60 Z" fill="#6b4a32" stroke="${INK}" stroke-width="5"/>
+      <path d="M-50,0 Q-60,-70 -20,-${110 + Math.sin(f / 3) * 10} Q-10,-60 0,-${140 + Math.sin(f / 2.3) * 14} Q20,-70 30,-${100 + Math.cos(f / 3) * 10} Q60,-50 50,0 Z" fill="#f08a3c" stroke="${INK}" stroke-width="4"/>
+      <path d="M-24,0 Q-24,-50 0,-${80 + Math.sin(f / 2) * 8} Q24,-50 24,0 Z" fill="#ffd36b"/></g>`;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#tent)"/><path d="M0,0 L960,-40 L1920,0 L1920,140 Q960,60 0,140 Z" fill="#3a2433"/>
+      <circle cx="420" cy="760" r="300" fill="#f08a3c" opacity="0.18" filter="url(#soft)"/>${fire(420, 860)}${smoke}
+      <rect y="900" width="1920" height="180" fill="#2a1a20"/>${motes(f, 20, { col: '#ffcf8a', seed: 13 })}`,
+      fg: `${shadow(1000, 940, 150)}<g transform="translate(1000 940) scale(1.05)">${K.seer({ blink: blink(f, [at('Troy') + 8]) })}</g>` };
+  } },
+  // 2 · "So your mom does what any goddess would do. She hides you." – Thetis rises from the sea and whisks him away
+  { cue: 'So your mom', draw(f, l, d) {
+    const hides = at('hides', 1, -2), rise = easeOut(win(l, 4, 22)), go = f >= hides ? easeOut(win(f, hides, hides + 7)) : 0;
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 560, 1.06]]);
+    const dx = go * 1500;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#beach)"/>${seaBand(520, 260, '#3f8fb0', '#bfe8f4', f, 7)}`,
+      fg: `<g transform="translate(${720 + dx} ${lerp(1100, 760, rise).toFixed(1)})">${K.thetis({ expr: f >= hides ? 'smile' : 'calm', breathe: bob(f) })}</g>
+      ${seaBand(700, 70, '#3f8fb0', '#e6f7fb', f, 9)}<path d="M-50,770 Q500,752 980,768 Q1500,786 1980,764" fill="none" stroke="#f6f0dc" stroke-width="14" stroke-linecap="round"/>
+      <rect y="772" width="1920" height="320" fill="#e5c690"/>
+      ${shadow(1150 + dx, 940, 90)}<g transform="translate(${1150 + dx} 940) scale(1.2)">${K.kidAchilles({ expr: f >= hides ? 'surprised' : 'smile', look: rise > 0.5 ? -0.8 : 0 })}</g>
+      ${go > 0 && go < 1 ? [0, 1, 2, 3].map(i => `<path d="M${(400 + dx - 200 - i * 90).toFixed(0)},${520 + i * 70} l-220,0" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity="0.7"/>`).join('') : ''}` };
+  } },
+  // 3 · "On an island, in a palace full of princesses." – the hall on Skyros, a row of princesses
+  { cue: 'On an island', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 560, 1.04], [d, 1020, 560, 1.04]]);
+    const xs = [380, 700, 1020, 1340, 1660];
+    return { cam, bg: palace(f, { seed: 21 }),
+      fg: xs.map((x, k) => `${shadow(x, 930, 90)}<g transform="translate(${x} 930) scale(0.9)">${K.princess(k, { breathe: bob(f, k), blink: blink(f, [SH[2].a + 20 + k * 9]) })}</g>`).join('') };
+  } },
+  // 4 · "As a girl." – Achilles in a dress, a head taller, arms crossed
+  { cue: 'As a girl', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 470, 1.22]]);
+    const row = [[480, 0], [740, 1], [1180, 2], [1440, 3]];
+    // v2: the reveal gets a spotlight – the hall goes dark around "Pyrrha"
+    return { cam, bg: palace(f, { seed: 22 }),
+      fg: row.map(([x, k]) => `${shadow(x, 930, 90)}<g transform="translate(${x} 930) scale(0.9)">${K.princess(k, { breathe: bob(f, k), look: x < 960 ? 1 : -1 })}</g>`).join('')
+        + `${shadow(960, 930, 100)}<g transform="translate(960 930) scale(1.08)">${K.teenPyrrha({ breathe: bob(f, 9), blink: blink(f, [SH[3].a + 12]) })}</g>
+        <rect x="-200" y="-200" width="2320" height="1480" fill="url(#spot)"/><path d="M860,-40 L1060,-40 L1240,940 L680,940 Z" fill="#fff6d8" opacity="0.10"/>` };
+  } },
+  // 5 · "Your new name is Pyrrha." – close-up: ACHILLES → strike → 13 frames → PYRRHA
+  { cue: 'Your new name', draw(f, l, d) {
+    const pop = at('Pyrrha.'), hit = pop - 16;
+    const cam = S.camera(l, [[0, 960, 420, 1.55], [d, 960, 420, 1.62]]);
+    // v2: the name gag on a violet sunburst instead of the same hall
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#violet)"/>${rays(f, 960, 1000, 22, '#fbe3ff', 0.16)}${motes(f, 20, { col: '#fff', seed: 23 })}`,
+      fg: `<g transform="translate(960 930) scale(1.08)">${K.teenPyrrha({ breathe: bob(f, 9), expr: f >= pop ? 'sad' : 'grumpy', blink: blink(f, [hit + 4]) })}</g>
+      ${S.word(640, 300, 70, 'ACHILLES')}${strike(f, hit, 540, 278, 742, 270)}
+      ${popLabel(f, pop, 650, 390, 84, 'PYRRHA', { fill: '#f6d35b', rot: -6 })}` };
+  } },
+  // 6 · "You're a teenager. It's not going great." – he trips over the hem, the princesses giggle
+  { cue: "You're a teenager", draw(f, l, d) {
+    const great = at('not going great', 1, -2);
+    const trip = f < great ? Math.sin(Math.min(1, l / 10) * Math.PI) * -14 : lerp(-14, -84, easeOut(win(f, great, great + 6)));
+    const cam = S.camera(l, [[0, 960, 600, 1.08], [d, 940, 640, 1.14]]);
+    const puff = f >= great + 5 ? [0, 1, 2, 3, 4].map(i => { const t = win(f, great + 5, great + 26); return `<circle cx="${(560 + i * 60 + (i - 2) * 40 * t).toFixed(0)}" cy="${(915 - 30 * t).toFixed(0)}" r="${(20 + 26 * t).toFixed(0)}" fill="#f1e2c6" opacity="${(0.8 * (1 - t)).toFixed(2)}"/>`; }).join('') : '';
+    return { cam, bg: palace(f, { seed: 24 }),
+      fg: `${shadow(1380, 930, 90)}<g transform="translate(1380 930) scale(0.9)">${K.princess(1, { expr: 'happy', breathe: bob(f, 1) })}</g>
+      ${shadow(1640, 930, 90)}<g transform="translate(1640 930) scale(0.9)">${K.princess(4, { expr: f >= great ? 'surprised' : 'happy', breathe: bob(f, 4) })}</g>
+      <g transform="translate(900 930) rotate(${trip.toFixed(1)}) scale(1.08)">${K.teenPyrrha({ expr: f >= great ? 'ko' : 'surprised' })}</g>${puff}` };
+  } },
+  // 7 · "Then Odysseus shows up with gifts." – Odysseus at the door with a cart of presents
+  { cue: 'Then Odysseus', draw(f, l, d) {
+    const lab = at('Odysseus');
+    const cam = S.camera(l, [[0, 960, 600, 1.22], [d, 990, 590, 1.3]]);
+    const box = (x, y, w, h, col, rib) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${col}" stroke="${INK}" stroke-width="5"/><path d="M${x + w / 2},${y} L${x + w / 2},${y + h} M${x},${y + h / 2} L${x + w},${y + h / 2}" stroke="${rib}" stroke-width="9"/>`;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#hall)"/>${meander(70, 50, '#f4e5c6', C.teal)}
+      <path d="M640,860 L640,330 Q960,150 1280,330 L1280,860 Z" fill="#8fc6e6" stroke="${INK}" stroke-width="8"/><path d="M640,700 Q960,640 1280,700 L1280,860 L640,860 Z" fill="#9cc49a"/>
+      <path d="M560,860 L560,320 L640,330 L640,860 Z M1360,860 L1360,320 L1280,330 L1280,860 Z" fill="#8a5a36" stroke="${INK}" stroke-width="6"/>
+      <rect y="860" width="1920" height="220" fill="#d2a374"/>${motes(f, 16, { col: '#fff6dc', seed: 31 })}`,
+      fg: `${shadow(900, 930, 100)}<g transform="translate(900 930)">${K.odysseus({ breathe: bob(f), blink: blink(f, [lab + 14]) })}</g>
+      <g><rect x="1060" y="760" width="300" height="110" rx="10" fill="#9a6a3f" stroke="${INK}" stroke-width="6"/><circle cx="1110" cy="880" r="40" fill="#6b4a32" stroke="${INK}" stroke-width="6"/><circle cx="1310" cy="880" r="40" fill="#6b4a32" stroke="${INK}" stroke-width="6"/>
+      ${box(1075, 650, 120, 110, '#d9a5b9', '#efbf4f')}${box(1205, 670, 140, 90, '#9cc3e0', '#b5553a')}${box(1120, 560, 100, 90, '#efe4cc', '#2f7f88')}${box(1240, 590, 80, 80, '#a9c79a', '#d9a5b9')}</g>
+      ${popLabel(f, lab, 700, 380, 64, 'ODYSSEUS', { sub: '(has a plan)' })}` };
+  } },
+  // 8 · "Dresses, jewelry, and, for some reason, one shield." – the pile, the princesses, ONE (1) SHIELD
+  { cue: 'Dresses,', draw(f, l, d) {
+    const sh = at('shield.');
+    const cam = S.camera(l, [[0, 1000, 600, 1.05], [d, 1080, 620, 1.12]]);
+    const cloth = (x, y, col, colS) => `<path d="M${x - 90},${y} Q${x},${y - 30} ${x + 90},${y} L${x + 80},${y + 40} Q${x},${y + 20} ${x - 80},${y + 40} Z" fill="${col}" stroke="${INK}" stroke-width="5"/><path d="M${x - 80},${y + 22} Q${x},${y + 2} ${x + 80},${y + 22}" fill="none" stroke="${colS}" stroke-width="5"/>`;
+    let beads = ''; for (let i = 0; i < 11; i++) { const a = Math.PI * (0.1 + 0.8 * i / 10); beads += `<circle cx="${(1010 + Math.cos(a) * 80).toFixed(0)}" cy="${(735 + Math.sin(a) * 40).toFixed(0)}" r="10" fill="${i % 2 ? '#f6d35b' : '#e57f73'}" stroke="${INK}" stroke-width="3"/>`; }
+    return { cam, bg: palace(f, { seed: 25 }),
+      fg: `${[[420, 0], [640, 2], [860, 3]].map(([x, k]) => `${shadow(x, 930, 90)}<g transform="translate(${x} 930) scale(0.9)">${K.princess(k, { breathe: bob(f, k), look: 1 })}</g>`).join('')}
+      <rect x="900" y="800" width="480" height="70" rx="10" fill="#8a5a36" stroke="${INK}" stroke-width="6"/>
+      ${cloth(1000, 770, '#d9a5b9', '#bb859c')}${cloth(1010, 740, '#9cc3e0', '#78a3c4')}${cloth(1180, 770, '#a9c79a', '#86a877')}${beads}
+      <rect x="1150" y="690" width="110" height="70" rx="8" fill="#e8bd55" stroke="${INK}" stroke-width="5"/><rect x="1150" y="690" width="110" height="22" fill="#c99230" stroke="${INK}" stroke-width="5"/>
+      <g transform="translate(1440 760) rotate(12)">${K.shield(0, 0, 80)}</g>
+      ${shadow(1720, 930, 100)}<g transform="translate(1720 930) scale(0.95)">${K.odysseus({ breathe: bob(f), look: -1 })}</g>
+      ${popLabel(f, sh, 1500, 470, 62, 'ONE (1) SHIELD', { rot: 4 })}
+      ${arrow(f, sh + 4, 'M1500,520 Q1520,600 1468,668', 170, 'M1452,640 L1466,670 L1494,654')}` };
+  } },
+  // 9 · "Somewhere outside, a war trumpet blows." – through the window: a soldier and a long horn
+  { cue: 'Somewhere outside', draw(f, l, d) {
+    const blow = at('blows.', 1, -4);
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 500, 1.16]]);
+    const lines = f >= blow ? [0, 1, 2].map(i => { const t = ((f - blow) / 14 + i / 3) % 1; return `<path d="M${1290 + t * 160},${380 - 60 + i * 60} q30,${-20 + i * 20} 60,0" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity="${(1 - t).toFixed(2)}"/>`; }).join('') : '';
+    return { cam, bg: `<rect width="1920" height="1080" fill="#e7d3ad"/>${meander(70, 50, '#f4e5c6', C.teal)}
+      <rect x="560" y="200" width="800" height="700" rx="40" fill="url(#day)" stroke="${INK}" stroke-width="10"/>
+      <path d="M560,700 Q760,600 960,660 Q1160,700 1360,640 L1360,900 L560,900 Z" fill="#9cc49a"/>`,
+      fg: `<g filter="url(#sil)"><g transform="translate(960 900) scale(0.85)">${K.hero({ helmet: true, cape: false, spear: false, shieldOn: false })}</g></g>
+      <path d="M990,524 L1230,410" stroke="${INK}" stroke-width="24" stroke-linecap="round"/><path d="M990,524 L1230,410" stroke="#d6a04a" stroke-width="14" stroke-linecap="round"/>
+      <path d="M1222,402 L1296,330 Q1340,380 1330,452 L1238,420 Z" fill="#d6a04a" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>
+      <ellipse cx="1313" cy="391" rx="20" ry="64" transform="rotate(-25 1313 391)" fill="#a9742e" stroke="${INK}" stroke-width="6"/>${lines}
+      <rect x="560" y="200" width="800" height="700" rx="40" fill="none" stroke="${INK}" stroke-width="10"/><path d="M960,200 L960,900 M560,550 L1360,550" stroke="#8a5a36" stroke-width="18"/>` };
+  } },
+  // 10 · "Every girl in the room runs." – everyone runs out of the frame
+  { cue: 'Every girl', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.04], [d, 960, 560, 1.04]]);
+    // they run across the whole shot: a short start, then a steady sprint to the left
+    const run = k => { const t = Math.max(0, l - (3 + k * 6)); return -(t < 8 ? t * t * 1.4 : 89.6 + (t - 8) * 22); };
+    return { cam, bg: palace(f, { seed: 26 }),
+      fg: [[520, 0], [820, 1], [1120, 2], [1420, 4]].map(([x, k]) => { const dx = run(k), hop = Math.abs(Math.sin((l + k * 3) / 2.5)) * -16;
+        return `<g transform="translate(${(x + dx).toFixed(1)} ${(930 + hop).toFixed(1)}) rotate(-8) scale(0.9)">${K.princess(k, { expr: 'scream', arms: 'run' })}</g>
+        ${dx < -40 ? `<path d="M${(x + dx + 140).toFixed(0)},880 l120,0 M${(x + dx + 150).toFixed(0)},820 l90,0" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity="0.7"/>` : ''}`; }).join('') };
+  } },
+  // 11 · "One of them grabs a spear." – Pyrrha alone, spear and shield, battle stance; Odysseus smirks
+  { cue: 'One of them', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 520, 1.1]]);
+    const shine = win(l, 6, 16);
+    // v2: the hero moment on a red-gold sunburst (v1 stayed in the same hall and the cut did not register)
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#heroic)"/>${rays(f, 960, 560, 20, '#ffe7a8', 0.2)}
+      <rect y="900" width="1920" height="180" fill="#5a2a1c" opacity="0.55"/>${motes(f, 26, { col: '#ffe7a8', seed: 27 })}`,
+      fg: `${shadow(940, 930, 110)}<g transform="translate(940 930) scale(1.12)">${K.teenPyrrha({ arms: 'armed', expr: 'angry', breathe: bob(f, 9) })}</g>
+      ${shine > 0 && shine < 1 ? `<path transform="translate(1052 ${300 - 14}) scale(${(Math.sin(shine * Math.PI) * 1.4).toFixed(2)})" d="M0,-30 L8,-8 L30,0 L8,8 L0,30 L-8,8 L-30,0 L-8,-8 Z" fill="#fff8d0" stroke="${INK}" stroke-width="3"/>` : ''}` };
+  } },
+  // 12 · "Before you sail, your mom tells you half her secret." – night beach, Thetis in the water, Achilles in armour
+  { cue: 'Before you sail', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 540, 1.08]]);
+    return { cam, bg: night(f), fg: beachPair(f, { thetisExpr: 'sad' }) };
+  } },
+  // 13 · "Two lives." – two scrolls rise between them and open
+  { cue: 'Two lives.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 520, 1.04]]);
+    const u = win(l, 3, 14), glow = Math.sin(Math.PI * win(l, 0, 22));
+    return { cam, bg: night(f, true) + `<circle cx="960" cy="470" r="${(300 + 500 * glow).toFixed(0)}" fill="#ffe9b0" opacity="${(0.55 * glow).toFixed(2)}" filter="url(#soft)"/>`,
+      fg: beachPair(f, { thetisExpr: 'sad', dim: true }) + scrolls(f, u, u, {}) };
+  } },
+  // 14 · "A long one at home, and nobody ever learns your name." – the left scroll: grey, quiet, forgotten
+  { cue: 'A long one', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 650, 430, 1.75], [d, 650, 440, 1.85]]);
+    return { cam, bg: night(f, true), fg: beachPair(f, { dim: true }) + scrolls(f, 1, 1, { focus: 'left' }) };
+  } },
+  // 15 · "Or a short one, and they sing about you forever." – the right scroll: the vase, the song
+  { cue: 'Or a short', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1270, 430, 1.75], [d, 1270, 440, 1.85]]);
+    return { cam, bg: night(f, true), fg: beachPair(f, { dim: true }) + scrolls(f, 1, 1, { focus: 'right', notes: l }) };
+  } },
+  // 16 · "You pick fast. You always do." – he grabs the right one before she finishes: CHOSEN
+  { cue: 'You pick fast.', draw(f, l, d) {
+    const st = at('fast.', 1, 0);
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 1080, 520, 1.12]]);
+    const grab = easeOut(win(l, 0, 6));
+    return { cam, bg: night(f, true), fg: beachPair(f, { thetisExpr: 'worried', dim: true, blinkAt: st + 10 }) + scrolls(f, 1, 1, { grab, fade: grab }) + stamp(f, st, 1270 + grab * 120, 470, 64, 'CHOSEN') };
+  } },
+  // 17 · "Congratulations, Pyrrha. You're going to war." – dawn, the fleet, the dress over the railing
+  { cue: 'Congratulations,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1080, 560, 1.03], [d, 1160, 590, 1.14]]);
+    let fleet = '';
+    for (let i = 0; i < 9; i++) { const a = S.rnd(i + 40); fleet += ship(120 + i * 190 + a * 40, 640 + a * 20, 0.16 + a * 0.05, { sail: '#e8c9a8' }); }
+    const sway = Math.sin(f / 18) * 6, rail = 1020 - 104 * 0.95 + sway;
+    // the dress, thrown over the railing next to him
+    const dress = `<g transform="translate(1060 ${(rail + 4).toFixed(1)})"><path d="M-70,0 Q0,-16 70,0 L84,120 Q40,104 0,128 Q-40,104 -84,120 Z" fill="${C.lilac}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M-70,0 Q0,-16 70,0 L74,-40 Q0,-56 -74,-40 Z" fill="${C.lilacL}" stroke="${INK}" stroke-width="5"/><path d="M-40,20 Q-50,70 -60,110 M30,20 Q40,70 48,108" fill="none" stroke="${C.lilacS}" stroke-width="5" stroke-linecap="round"/></g>`;
+    return { cam, bg: `<rect width="1920" height="1080" fill="url(#dawn)"/><circle cx="420" cy="640" r="120" fill="#ffe2a8"/><circle cx="420" cy="640" r="240" fill="#ffd08a" opacity="0.3"/>
+      ${seaBand(640, 440, '#5d8fae', '#ffe2b8', f, 77)}${fleet}${motes(f, 18, { col: '#fff1d6', seed: 81 })}`,
+      fg: `${ship(980, 1020 + sway, 0.95, { emblem: true })}
+      <g transform="translate(1260 ${(rail - 4).toFixed(1)}) scale(0.72)">${K.adultAchilles({ expr: 'proud', look: -1, breathe: bob(f), blink: blink(f, [SH[16].a + 30]) })}</g>${dress}` };
+  } },
+];
+
+function night(f, dark) {
+  let stars = '';
+  for (let i = 0; i < 40; i++) { const a = S.rnd(i + 90), b = S.rnd(i * 2.3 + 7); stars += `<circle cx="${(a * 1920).toFixed(0)}" cy="${(b * 420).toFixed(0)}" r="${(1.5 + a * 2.5).toFixed(1)}" fill="#fff" opacity="${(0.4 + 0.5 * Math.abs(Math.sin(f / 20 + i))).toFixed(2)}"/>`; }
+  let ships = '';
+  for (let i = 0; i < 6; i++) ships += ship(260 + i * 300, 620, 0.14, { sail: '#2a3550' });
+  return `<rect width="1920" height="1080" fill="url(#night)"/>${stars}<circle cx="1560" cy="200" r="70" fill="#f4ecd0"/><circle cx="1560" cy="200" r="150" fill="#f4ecd0" opacity="0.12"/>
+    ${seaBand(620, 460, '#1b2a44', '#8fa6c9', f, 55)}<g opacity="0.9">${ships}</g>
+    <path d="M1500,630 L1620,630 L1600,900 L1520,900 Z" fill="#f4ecd0" opacity="0.08"/>
+    ${dark ? `<rect width="1920" height="1080" fill="#0b0f1d" opacity="0.35"/>` : ''}`;
+}
+function beachPair(f, o = {}) {
+  return `<g opacity="${o.dim ? 0.55 : 1}"><g transform="translate(620 860)">${K.thetis({ expr: o.thetisExpr || 'sad', breathe: bob(f), blink: o.blinkAt ? blink(f, [o.blinkAt]) : 0 })}</g>
+    ${seaBand(800, 90, '#1b2a44', '#8fa6c9', f, 57)}
+    <path d="M980,1100 L1060,860 Q1500,820 1980,880 L1980,1100 Z" fill="#c9b38a" stroke="${INK}" stroke-width="5"/>
+    <g transform="translate(1340 980) scale(0.95)">${K.adultAchilles({ expr: 'neutral', look: -1, breathe: bob(f, 3) })}</g></g>`;
+}
+function scrolls(f, uL, uR, o = {}) {
+  const grey = `<g opacity="0.85"><rect x="-90" y="-10" width="180" height="120" fill="#b9b4ac" stroke="${INK}" stroke-width="5"/><path d="M-110,-10 L0,-80 L110,-10 Z" fill="#8e8a84" stroke="${INK}" stroke-width="5"/>
+      <rect x="-30" y="40" width="60" height="70" fill="#7d7872"/><circle cx="150" cy="70" r="26" fill="#9a958d" stroke="${INK}" stroke-width="4"/><path d="M130,96 Q150,160 172,96 Z" fill="#9a958d" stroke="${INK}" stroke-width="4"/>
+      <path d="M150,60 q-6,6 0,12" stroke="${INK}" stroke-width="3" fill="none"/></g>
+      ${S.word(0, 210, 34, 'nobody remembers', { fill: '#e9e4da', sw: 7 })}`;
+  const gold = `${vase(0, 60, 0.75)}${[0, 1, 2].map(i => { const t = (((o.notes || 0) / 40) + i / 3) % 1; return `<text x="${(90 + i * 22).toFixed(0)}" y="${(30 - t * 120).toFixed(0)}" font-size="46" fill="#f6d35b" stroke="${INK}" stroke-width="3" paint-order="stroke" opacity="${(1 - t).toFixed(2)}">♪</text>`; }).join('')}
+      ${S.word(0, 210, 34, 'sung forever', { fill: '#f6d35b', sw: 7 })}`;
+  const lx = 650, rx = 1270 + (o.grab || 0) * 120, y = 470;
+  // v2: each close-up gets its own light – grey fog for the long life, warm gold for the short one
+  return `${o.focus === 'left' ? `<rect x="-200" y="-200" width="2320" height="1480" fill="#6f6c68" opacity="0.6"/><circle cx="${lx}" cy="${y}" r="520" fill="#a9a59e" opacity="0.5" filter="url(#soft)"/>` : ''}
+    ${o.focus === 'right' ? `<rect x="-200" y="-200" width="2320" height="1480" fill="#7a4a12" opacity="0.55"/><circle cx="${rx}" cy="${y}" r="560" fill="#ffc861" opacity="0.55" filter="url(#soft)"/>` : ''}
+    <g opacity="${o.fade ? (1 - 0.6 * o.fade).toFixed(2) : 1}">${scroll(lx, y, 380, 470, uL, 'LONG LIFE', grey, { dim: o.focus === 'right', paper: '#d9d3c6' })}</g>
+    ${o.grab !== undefined ? `<circle cx="${rx}" cy="${y}" r="320" fill="#ffd36b" opacity="0.18" filter="url(#soft)"/>` : ''}
+    ${scroll(rx, y, 380, 470, uR, 'SHORT LIFE', gold, { dim: o.focus === 'left', titleCol: '#f6d35b' })}`;
+}
+
+function frame(f) {
+  // chapter card first, then a 5-frame fade in from black
+  if (f < SH[0].a) return `<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">${S.chapterCard(f, 2, 'I', 'Pyrrha')}</svg>`;
+  let i = SH.length - 1;
+  while (i > 0 && f < SH[i].a) i--;
+  const sh = SH[i];
+  const out = SHOTS[i].draw(f, f - sh.a, sh.b - sh.a);
+  const fadeIn = i === 0 ? 1 - win(f, sh.a, sh.a + 5) : 0;
+  return `<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>${S.DEFS}
+    ${grad('tent', [[0, '#2a1a26'], [1, '#4a2d33']])}
+    ${grad('beach', [[0, '#7cb9de'], [0.5, '#cfe9f2'], [1, '#cfe9f2']])}
+    ${grad('hall', [[0, '#dcc092'], [1, '#bf9a68']])}
+    ${grad('day', [[0, '#8cc6e6'], [1, '#e2f2ef']])}
+    ${grad('night', [[0, '#070b18'], [0.6, '#16213d'], [1, '#22304f']])}
+    ${grad('dawn', [[0, '#6f86b8'], [0.45, '#e8a7a0'], [0.6, '#f6c890']])}
+    ${grad('violet', [[0, '#3a2a63'], [0.6, '#8a5aa6'], [1, '#e6a0b8']])}
+    <radialGradient id="heroic" cx="0.5" cy="0.52" r="0.75"><stop offset="0" stop-color="#ffd27a"/><stop offset="0.45" stop-color="#e2683a"/><stop offset="1" stop-color="#7a1f24"/></radialGradient>
+    <radialGradient id="hallshade" cx="0.5" cy="0.4" r="0.8"><stop offset="0.35" stop-color="#2a1608" stop-opacity="0"/><stop offset="1" stop-color="#2a1608" stop-opacity="0.45"/></radialGradient>
+    <radialGradient id="spot"cx="0.5" cy="0.52" r="0.42"><stop offset="0.34" stop-color="#000" stop-opacity="0"/><stop offset="0.62" stop-color="#0b0710" stop-opacity="0.78"/><stop offset="1" stop-color="#0b0710" stop-opacity="0.9"/></radialGradient>
+    <filter id="sil"><feColorMatrix type="matrix" values="0 0 0 0 0.16  0 0 0 0 0.20  0 0 0 0 0.28  0 0 0 1 0"/></filter>
+  </defs>
+  <g filter="url(#grade)"><g transform="${out.cam}">${out.bg}${out.fg}</g></g>
+  ${S.vignette()}
+  ${fadeIn > 0 ? `<rect width="1920" height="1080" fill="#07050a" opacity="${fadeIn.toFixed(2)}"/>` : ''}
+  ${f > END - 6 ? `<rect width="1920" height="1080" fill="#000" opacity="${win(f, END - 6, END).toFixed(2)}"/>` : ''}
+</svg>`;
+}
+
+const stage = document.getElementById('stage');
+window.READY = (async () => {
+  const url = new URLSearchParams(location.search).get('words');
+  const r = await S.loadWords(TEXT, url);
+  W = r.words;
+  SH = SHOTS.map((s, i) => ({ a: i === 0 ? Math.round(OFF * FPS) - 3 : F(S.cue(W, s.cue).s, -2) }));
+  END = F(W[W.length - 1].e + 1.3);
+  SH.forEach((s, i) => { s.b = i < SH.length - 1 ? SH[i + 1].a : END; });
+  window.TOTAL_FRAMES = END;
+  window.CUES = { realVoice: r.real, voiceOffset: OFF, shots: SH.map((s, i) => ({ shot: i + 1, start: +(s.a / FPS).toFixed(2), end: +(s.b / FPS).toFixed(2) })) };
+  await document.fonts.ready;
+  stage.innerHTML = frame(0);
+})();
+window.renderFrame = async f => { stage.innerHTML = frame(f); };
+</script>
+</body>
+</html>

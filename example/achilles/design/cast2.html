@@ -1,0 +1,114 @@
+﻿<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles â€“ cast sheet 2 (the whole episode)</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  #stage { width: 1920px; height: 1080px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/cast2.js"></script>
+<script>
+// Cast sheet 2: every new character, pose and arm option of lib/cast2.js, one page per frame (?page=N shows one page).
+const { C, INK } = window.CAST;
+const K = window.CAST, Q = window.CAST2;
+const q = new URLSearchParams(location.search);
+const ONLY = q.get('page');
+
+function meander(y, h, col, bg) {
+  let s = `<rect x="0" y="${y}" width="1920" height="${h}" fill="${bg}"/>`;
+  const k = h * 0.62, top = y + (h - k) / 2;
+  for (let x = -10; x < 1930; x += k * 1.25) {
+    const a = k * 0.18;
+    s += `<path d="M${x},${top + k} L${x},${top} L${x + k},${top} L${x + k},${top + k - a} L${x + a * 1.6},${top + k - a} L${x + a * 1.6},${top + a * 1.6} L${x + k - a * 1.6},${top + a * 1.6}" fill="none" stroke="${col}" stroke-width="${a * 0.9}"/>
+      <path d="M${x},${top + k} L${x + k * 1.25},${top + k}" stroke="${col}" stroke-width="${a * 0.9}"/>`;
+  }
+  return s;
+}
+const ach = o => Q.achilles(o), civ = o => Q.achilles({ armor: false, ...o });
+// [label, draw(), scale, dx]
+const PAGES = [
+  { title: 'ADULT ACHILLES Â· POSES', scale: 0.55, rows: [
+    [['stand (= hero)', () => ach()], ['civilian', () => civ({ arms: 'down', expr: 'smile' })], ['walk', () => civ({ pose: 'walk', arms: 'down' })],
+     ['run Â· spear', () => ach({ pose: 'run', expr: 'angry' })], ['run Â· dir -1', () => civ({ pose: 'run', arms: 'pump', dir: -1, expr: 'determined' })], ['finger', () => civ({ arms: 'finger', expr: 'stern' })], ['cheer', () => civ({ arms: 'cheer', expr: 'happy' })]],
+    [['kneel Â· dirt', () => civ({ pose: 'kneel', arms: 'dirt', expr: 'cry' })], ['kneel Â· handsHead', () => civ({ pose: 'kneel', arms: 'handsHead', expr: 'hurt' })], ['sit Â· lyre', () => civ({ pose: 'sit', arms: 'lyre', expr: 'calm' })],
+     ['sit Â· armour', () => ach({ pose: 'sit', arms: 'down', shieldOn: false, spear: false, expr: 'grumpy' })], ['lunge Â· sword', () => ach({ pose: 'lunge', arms: 'sword', expr: 'angry' })], ['scream', () => civ({ pose: 'scream', arms: 'out', expr: 'scream' })], ['reach / hold', () => civ({ arms: 'hold', expr: 'surprised' })]],
+  ] },
+  { title: 'PATROCLUS Â· HECTOR Â· SOLDIERS Â· MEMNON', scale: 0.52, rows: [
+    [['Patroclus', () => Q.patroclus()], ['in your armour', () => Q.patroclus({ armor: true, expr: 'determined' })], ['kneel Â· point', () => Q.patroclus({ pose: 'kneel', arms: 'point', expr: 'worried' })],
+     ['Hector', () => Q.hector()], ['in YOUR armour', () => Q.hector({ inAchillesArmor: true })], ['Hector runs', () => Q.hector({ pose: 'run', dir: -1, expr: 'worried' })], ['Hector Â· helmet', () => Q.hector({ helmet: true })]],
+    [['Myrmidon', () => Q.soldier({ side: 'greek', k: 0 })], ['Greek 2', () => Q.soldier({ side: 'greek', k: 1 })], ['Greek 3', () => Q.soldier({ side: 'greek', k: 2 })],
+     ['Trojan 1', () => Q.soldier({ side: 'trojan', k: 0 })], ['Trojan 2', () => Q.soldier({ side: 'trojan', k: 1 })], ['Trojan 3', () => Q.soldier({ side: 'trojan', k: 2 })], ['Memnon', () => Q.memnon()]],
+  ] },
+  { title: 'PELEUS Â· CHIRON', scale: 0.5, rows: [
+    [['Peleus', () => Q.peleus()], ['towel', () => Q.peleus({ arms: 'towel' })], ['finger "umâ€“"', () => Q.peleus({ arms: 'finger', expr: 'worried' })], ['lift', () => Q.peleus({ arms: 'lift', expr: 'happy' })],
+     ['cheer', () => Q.peleus({ arms: 'cheer', expr: 'happy' })], ['sit Â· chin', () => Q.peleus({ pose: 'sit', arms: 'chin', expr: 'neutral' })], ['nightshirt Â· scream', () => Q.peleus({ nightshirt: true, arms: 'candle', expr: 'scream' })], ['old (memory)', () => Q.peleus({ old: true, expr: 'sad' })]],
+    [['Chiron', () => Q.chiron(), 0.46, 60], ['ladle', () => Q.chiron({ arms: 'ladle' }), 0.46, 60], ['staff', () => Q.chiron({ arms: 'staff', expr: 'determined' }), 0.46, 60], ['offer lyre', () => Q.chiron({ arms: 'offer', expr: 'smile' }), 0.46, 60], ['lift (take baby)', () => Q.chiron({ arms: 'lift', expr: 'happy' }), 0.46, 60]],
+  ] },
+  { title: 'KIDS (AGE 6) Â· NEOPTOLEMUS', scale: 0.72, rows: [
+    [['kidAchilles (cast.js)', () => K.kidAchilles({ expr: 'proud' })], ['hips', () => Q.kid({ arms: 'hips' })], ['drag', () => `<g transform="translate(${Q.KID_DRAG_HAND[0] - 250 * 0.55} ${Q.KID_DRAG_HAND[1] + 90 * 0.55}) scale(0.55)">${K.lionKO({ tailX: 250, tailY: -90 })}</g>` + Q.kid({ arms: 'drag', expr: 'proud' })],
+     ['sword', () => Q.kid({ arms: 'sword', expr: 'angry' })], ['lyre', () => Q.kid({ arms: 'lyre', expr: 'disgust' })], ['run', () => Q.kid({ pose: 'run', arms: 'pump', expr: 'happy' })], ['angry + steam', () => Q.kid({ arms: 'down', expr: 'angry', steam: true })]],
+    [['Patroclus (6)', () => Q.kid({ who: 'patroclus' })], ['bundle', () => Q.kid({ who: 'patroclus', arms: 'bundle' })], ['shoulder', () => Q.kid({ who: 'patroclus', arms: 'shoulder', expr: 'smile' })], ['bandage', () => Q.kid({ arms: 'bandage', expr: 'calm' })],
+     ['Neoptolemus (teen)', () => Q.neoptolemus()], ['determined', () => Q.kid({ expr: 'determined', arms: 'hips' })], ['ko', () => Q.kid({ expr: 'ko' })]],
+  ] },
+  { title: 'AGAMEMNON Â· BRISEIS Â· PRIAM', scale: 0.55, rows: [
+    [['Agamemnon Â· plate', () => Q.agamemnon({ arms: 'plate' })], ['goblet', () => Q.agamemnon({ arms: 'goblet' })], ['grapes', () => Q.agamemnon({ arms: 'grapes' })], ['sit Â· shocked', () => Q.agamemnon({ pose: 'sit', arms: 'down', expr: 'shocked' })],
+     ['Briseis', () => Q.briseis(), 0.62], ['sad Â· veil', () => Q.briseis({ expr: 'sad', veil: true }), 0.62]],
+    [['Priam Â· crown', () => Q.priam({ crown: true })], ['walk (night)', () => Q.priam({ pose: 'walk' })], ['kneel Â· plead', () => Q.priam({ pose: 'kneel', arms: 'plead', expr: 'cry' })], ['face Â· cry', () => Q.priam({ arms: 'face', expr: 'cry' })],
+     ['Achilles Â· cry', () => civ({ expr: 'cry', arms: 'down' })], ['Patroclus Â· cry', () => Q.patroclus({ expr: 'cry' })]],
+  ] },
+  { title: 'GODS Â· PARIS Â· THE AMAZON QUEEN', scale: 0.55, rows: [
+    [['Strife', () => Q.strife(), 0.6], ['roll', () => Q.strife({ arms: 'roll' }), 0.6], ['Hera', () => Q.hera(), 0.6], ['grab', () => Q.hera({ arms: 'grab', expr: 'angry' }), 0.6],
+     ['Athena', () => Q.athena(), 0.6], ['grab', () => Q.athena({ arms: 'grab', expr: 'angry' }), 0.6], ['Aphrodite', () => Q.aphrodite(), 0.6], ['grab', () => Q.aphrodite({ arms: 'grab', expr: 'surprised' }), 0.6]],
+    [['Paris Â· bow', () => Q.paris(), 0.5, 60], ['shepherd Â· apple', () => Q.paris({ shepherd: true, expr: 'smile' }), 0.5], ['Apollo', () => Q.apollo(), 0.5], ['Apollo Â· glow', () => Q.apollo({ glow: true, arms: 'reach' }), 0.5],
+     ['Zeus (bust)', () => Q.zeus(), 0.42], ['Hephaestus â†‘', () => Q.hephaestus({ hammerUp: 1 }), 0.5], ['â†“', () => Q.hephaestus({ hammerUp: 0 }), 0.5], ['Penthesilea Â· ride', () => `<g transform="translate(0 -160)">${Q.penthesilea()}</g>`, 0.5]],
+  ] },
+  { title: 'FACES Â· THE SHADE Â· PROPS', scale: 0.8, rows: [
+    ['smile', 'proud', 'cry', 'shocked', 'smug', 'disgust', 'determined', 'stern', 'hurt', 'tired', 'scream'].map(e => [e, () => `<g transform="translate(0 -110)">${Q.head2(72, { expr: e, front: K.tousled(72, { tufts: 6, depth: 0.28 }), back: '' })}</g>`, 0.95]),
+    [['the shade (filter)', () => `<g filter="url(#shade)">${civ({ expr: 'smile', arms: 'down' })}</g>`, 0.52], ['Odysseus (alive)', () => K.odysseus({ expr: 'calm' }), 0.52], ['golden apple', () => Q.goldenApple(0, -80, 60, { text: 'for the fairest' }), 1],
+     ['lyre', () => Q.lyre(0, -50, 1.1), 1], ['shields', () => [['waves', -180], ['horse', -60], ['sun', 60], ['star', 180]].map(([e, x]) => Q.shield2(x, -90, 52, { metal: C.bronze, metalS: C.bronzeS, rim: '#5c2020', mark: '#5c2020', emblem: e })).join(''), 1],
+     ['pelta', () => Q.shield2(0, -90, 60, { metal: '#b8352c', metalS: '#8a2620', mark: INK, emblem: 'pelta' }), 1], ['sword', () => Q.sword(0, -40, 0), 1]],
+  ] },
+];
+
+function page(i) {
+  const pg = PAGES[i];
+  const top = 150, H = 1080 - top - 20, rows = pg.rows.length, rh = H / rows;
+  let figs = '';
+  pg.rows.forEach((row, ri) => {
+    const base = top + rh * (ri + 1) - 52;
+    const w = 1920 / row.length;
+    row.forEach(([label, fn, sc, dx], k) => {
+      const x = w * (k + 0.5) + (dx || 0) * (sc || pg.scale), s = sc || pg.scale;
+      figs += `<ellipse cx="${x}" cy="${base + 4}" rx="${70 * s / 0.55}" ry="10" fill="#000" opacity="0.16"/>
+        <g transform="translate(${x} ${base}) scale(${s})">${fn()}</g>
+        <text x="${w * (k + 0.5)}" y="${base + 38}" text-anchor="middle" font-family="Segoe UI Black, Arial Black, sans-serif" font-size="22" fill="#fff" stroke="${INK}" stroke-width="6" paint-order="stroke" stroke-linejoin="round">${label}</text>`;
+    });
+    figs += `<rect x="0" y="${base + 6}" width="1920" height="3" fill="#000" opacity="0.08"/>`;
+  });
+  return `<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4e5c6"/><stop offset="1" stop-color="#e3cb9f"/></linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="14"/></filter>
+    ${Q.SHADE_DEFS}
+  </defs>
+  <rect width="1920" height="1080" fill="url(#wall)"/>
+  ${meander(96, 34, '#f4e5c6', C.teal)}
+  <text x="40" y="70" font-family="Segoe UI Black, Arial Black, sans-serif" font-size="40" fill="#fff" stroke="${INK}" stroke-width="9" paint-order="stroke" stroke-linejoin="round">${pg.title}</text>
+  <text x="1880" y="70" text-anchor="end" font-family="Segoe UI, Arial, sans-serif" font-weight="700" font-size="26" fill="${INK}" opacity="0.7">cast sheet 2 Â· page ${i + 1}/${PAGES.length}</text>
+  ${figs}
+</svg>`;
+}
+
+const stage = document.getElementById('stage');
+window.TOTAL_FRAMES = ONLY !== null ? 1 : PAGES.length;
+window.renderFrame = async f => { stage.innerHTML = page(ONLY !== null ? +ONLY : f); };
+window.READY = document.fonts.ready.then(() => window.renderFrame(0));
+</script>
+</body>
+</html>

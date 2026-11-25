@@ -1,0 +1,764 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – piece: prologue "Half a God"</title>
+<style>html, body { margin: 0; padding: 0; background: #000; overflow: hidden; } #stage { width: 1920px; height: 1080px; } svg { display: block; }</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/cast2.js"></script>
+<script src="../lib/props.js"></script>
+<script src="../lib/scene.js"></script>
+<script src="../lib/sets.js"></script>
+<script src="../lib/runner.js"></script>
+<script>
+// The prologue "Half a God" (EPISODE.md § 2): birth to adulthood, the fastest and funniest part of the episode.
+// No chapter card: it flows straight on from the hook (same river, same moon, Thetis on her rock, the baby still screaming).
+// Every cut and every pop hangs on the narrator's words (?words=../voice/prologue/words.json).
+const K = window.CAST, K2 = window.CAST2, PR = window.PROPS, S = window.SCENE, T = window.SETS;
+const { C, INK, cel, limb } = K;
+const { ease, easeOut, win, lerp, popLabel, arrow, strike, stamp, motes, blink, clamp } = S;
+const TEXT = `Your mom is Thetis, a sea goddess, and she wants you immortal. Hence the river. Your dad is Peleus, a mortal king, who was not consulted. Everything goes under, except the heel in her hand. Tiny detail. Then she tries a second trick, at night, holding you in the fire. Your dad walks in and screams. Your mom walks back into the sea. And that's your parents' marriage. Oh, and at their wedding, the one goddess nobody invited, Strife, rolled in a golden apple that says, for the fairest. Three goddesses are still fighting over it. Remember that apple. So your dad hands you to Chiron, a centaur. Half horse, half the best teacher in Greece. Breakfast is lion guts and bear marrow. At six, you drag home dead lions and wild boars, and you run down deer without dogs. Chiron teaches you to fight, to heal, and to play the lyre. The lyre, you think, is useless. Hold that thought. Back home, a new boy moves in. Patroclus. He killed another kid over a game of dice. Your dad's reaction? Perfect. New best friend. He's a year older, and the only one who can calm you down. In the hall hangs your dad's armor, a wedding gift from the gods. Remember that armor. And your mom? She knows exactly how your life ends. She just isn't saying. Then you grow up. Fast. Blond, proud, the fastest man in Greece. And still screaming for attention.`;
+
+// ---------- small helpers ----------
+const n1 = v => Math.round(v * 10) / 10;
+const bob = (f, k = 0) => Math.sin((f + k * 13) / 14) * 3.5;
+const ink = (w = 4) => `stroke="${INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
+const G = (x, y, s, svg, rot = 0) => `<g transform="translate(${n1(x)} ${n1(y)})${rot ? ` rotate(${n1(rot)})` : ''}${s !== 1 ? ` scale(${s})` : ''}">${svg}</g>`;
+const mirror = svg => `<g transform="translate(1920 0) scale(-1 1)">${svg}</g>`;
+const sepia = svg => `<g filter="url(#sepiaF)">${svg}</g>`;
+const kidA = o => K2.kid({ who: 'achilles', age: 'six', ...o });          // age 'six' = the kid from cast.js, with every expression
+const kidP = o => K2.kid({ who: 'patroclus', expr: 'calm', ...o });
+const ITAL = `font-family="Segoe UI, Arial, sans-serif" font-weight="700" font-style="italic"`;
+// where a stage point lands on the screen for a given camera transform (labels and arrows live on the screen, in the hud)
+function camPt(cam, X, Y) {
+  const m = /scale\(([-\d.]+)\) translate\(([-\d.]+) ([-\d.]+)\)/.exec(cam);
+  const z = +m[1], x = -m[2], y = -m[3];
+  return [960 + z * (X - x), 540 + z * (Y - y)];
+}
+// a camera without the runner's amplification (for the fast zoom), clamped inside the stage
+function camAt(z, x, y) {
+  const hx = 960 / z, hy = 540 / z;
+  return `translate(960 540) scale(${z.toFixed(4)}) translate(${(-clamp(x, hx, 1920 - hx)).toFixed(2)} ${(-clamp(y, hy, 1080 - hy)).toFixed(2)})`;
+}
+// a hand-drawn arrow from (x1,y1) to (x2,y2) (screen), bowed sideways, drawing on in 10 frames
+function arrowTo(f, f0, x1, y1, x2, y2, bend = 0.25, o = {}) {
+  const dx = x2 - x1, dy = y2 - y1, cx = (x1 + x2) / 2 - dy * bend, cy = (y1 + y2) / 2 + dx * bend;
+  let len = 0, px = x1, py = y1;
+  for (let i = 1; i <= 16; i++) { const t = i / 16, qx = (1 - t) * (1 - t) * x1 + 2 * t * (1 - t) * cx + t * t * x2, qy = (1 - t) * (1 - t) * y1 + 2 * t * (1 - t) * cy + t * t * y2; len += Math.hypot(qx - px, qy - py); px = qx; py = qy; }
+  const tx = x2 - cx, ty = y2 - cy, tl = Math.hypot(tx, ty) || 1, ux = tx / tl, uy = ty / tl, h = o.head || 24;
+  const a = [x2 - ux * h - uy * h * 0.75, y2 - uy * h + ux * h * 0.75], b = [x2 - ux * h + uy * h * 0.75, y2 - uy * h - ux * h * 0.75];
+  return arrow(f, f0, `M${n1(x1)},${n1(y1)} Q${n1(cx)},${n1(cy)} ${n1(x2)},${n1(y2)}`, Math.ceil(len) + 2, `M${n1(a[0])},${n1(a[1])} L${n1(x2)},${n1(y2)} L${n1(b[0])},${n1(b[1])}`, o);
+}
+// any svg that pops like a label (3 frames up with overshoot)
+const popG = (f, f0, x, y, svg, rot = 0) => { const s = S.popScale(f - f0); return s <= 0 ? '' : `<g transform="translate(${n1(x)} ${n1(y)}) rotate(${rot}) scale(${s.toFixed(3)})">${svg}</g>`; };
+const star4 = (x, y, z, col = '#fffbe6', op = 1, outline = false) => z <= 0.5 ? '' : `<path d="M${n1(x)},${n1(y - z)} L${n1(x + z * 0.24)},${n1(y - z * 0.24)} L${n1(x + z)},${n1(y)} L${n1(x + z * 0.24)},${n1(y + z * 0.24)} L${n1(x)},${n1(y + z)} L${n1(x - z * 0.24)},${n1(y + z * 0.24)} L${n1(x - z)},${n1(y)} L${n1(x - z * 0.24)},${n1(y - z * 0.24)} Z" fill="${col}" opacity="${op}"${outline ? ` ${ink(3)}` : ''}/>`;
+// white shake lines over a head (screams, the hook's LOUD)
+const shakeLines = (x, y, r, k = 0) => [0, 1, 2, 3, 4, 5].map(i => { const a = -2.6 + i * 0.4 + Math.sin(k * 1.7 + i) * 0.05, c = Math.cos(a), s = Math.sin(a);
+  const d = `M${n1(x + c * r)},${n1(y + s * r)} l${n1(c * r * 0.34)},${n1(s * r * 0.34)}`;
+  return `<path d="${d}" stroke="${INK}" stroke-width="${n1(r * 0.06 + 9)}" stroke-linecap="round" opacity="0.5"/><path d="${d}" stroke="#fff" stroke-width="${n1(r * 0.06 + 3)}" stroke-linecap="round"/>`; }).join('');
+const flash = (f, f0, k = 4, col = '#fff') => f >= f0 && f < f0 + k ? `<rect width="1920" height="1080" fill="${col}" opacity="${(0.85 * (1 - (f - f0) / k)).toFixed(2)}"/>` : '';
+const shadow = (x, y, w, op) => T.shadow(x, y, w, op);
+
+// Thetis with the arm poses the scenes need – the same drawing as cast.js thetis() (copied here, our helper), with head2 faces.
+// arms 'down' (cast.js: one relaxed, one palm raised) | 'holdOut' (the hand is drawn by the scene, at the baby's foot) |
+// 'carry' (cradles o.baby, drawn in her coordinates) | 'shh' (finger on the lips, the other arm behind her back); back: seen from behind
+function thetis2(o = {}) {
+  const r = 80, b = o.breathe || 0, arms = o.arms || 'down';
+  const L = (x1, y1, x2, y2, w) => limb(x1, y1 + b, x2, y2 + b, w, C.skin, C.skinS);
+  const hairBack = a => `<path d="M-60,${-500 + b} C-128,-470 -150,-380 -132,-300 C-120,-250 -146,-220 -134,-180
+    q-6,26 16,30 q20,4 22,-16 q14,22 34,10 q14,-10 6,-28 L74,-196 q-8,18 6,28 q20,12 34,-10 q2,20 22,16 q22,-4 16,-30
+    C146,-220 120,-250 132,-300 C150,-380 128,-470 60,${-500 + b} Z" ${a}/>`;
+  const strands = `<path d="M-108,-420 C-124,-360 -110,-300 -118,-240 M110,-420 C124,-360 110,-300 118,-240" fill="none" stroke="${C.seaL}" stroke-width="6" stroke-linecap="round" opacity="0.8"/>`;
+  let s = '';
+  if (!o.back) s += cel(hairBack, C.sea, C.seaS, 0.08, 0, 140) + strands;
+  if (arms === 'shh') s += L(-46, -360, -82, -292, 22) + L(-82, -292, -44, -238, 20);       // the left hand hides behind her back
+  const gown = a => `<path d="M-46,${-372 + b} Q0,${-382 + b} 46,${-372 + b} C60,-270 96,-130 120,-34 Q100,-14 80,-30 Q60,-12 40,-28 Q20,-10 0,-26 Q-20,-10 -40,-28 Q-60,-12 -80,-30 Q-100,-14 -120,-34 C-96,-130 -60,-270 -46,${-372 + b} Z" ${a}/>`;
+  s += cel(gown, C.gown, C.gownS, -0.16, 0, 120);
+  s += `<path d="M-20,-300 Q-34,-170 -56,-50 M18,-300 Q30,-170 50,-48" fill="none" stroke="${C.gownS}" stroke-width="4" stroke-linecap="round"/>`;
+  for (let i = -3; i <= 3; i++) s += `<path d="M${i * 38 - 18},-14 q9,-16 20,-4 q8,-12 18,0" fill="${C.foam}" ${ink(2.8)}/>`;
+  s += `<path d="M-48,${-318 + b} Q0,${-306 + b} 48,${-318 + b}" fill="none" stroke="${C.seaS}" stroke-width="10" stroke-linecap="round"/>`;
+  if (o.back) s += cel(hairBack, C.sea, C.seaS, 0.08, 0, 140) + strands;                        // from behind, the long hair falls over her back
+  if (arms === 'down' || arms === 'holdOut') s += L(-46, -360, -70, -282, 22) + L(-70, -282, -60, -212, 20) + K.hand(-58, -204 + b, 13);
+  if (arms === 'down') s += L(46, -360, 84, -300, 22) + L(84, -300, 112, -350, 20) + K.hand(115, -358 + b, 14);
+  if (arms === 'holdOut') s += L(46, -360, 118, -318, 22) + L(118, -318, 170, -262, 20);
+  if (arms === 'pinch') s += L(-46, -360, -92, -300, 22) + L(-92, -300, -44, -296, 20) + (o.held || '') + K.hand(-44, -296 + b, 14)
+    + L(46, -360, 92, -300, 22) + L(92, -300, 44, -296, 20) + K.hand(44, -296 + b, 14);
+  if (arms === 'carry') s += (o.baby || '') + L(-46, -360, -82, -300, 22) + L(-82, -300, 18, -262, 20) + K.hand(22, -262 + b, 13)
+    + L(46, -360, 82, -300, 22) + L(82, -300, -16, -278, 20) + K.hand(-20, -278 + b, 13);
+  s += `<rect x="-15" y="${-398 + b}" width="30" height="30" fill="${C.skinS}" ${ink()}/>`;
+  if (o.back) {
+    const back = cel(a => `<circle r="${r * 1.04}" ${a}/>`, C.sea, C.seaS, 0.1, -0.05, r)
+      + `<path d="M${-0.5 * r},${-0.72 * r} Q${-0.62 * r},0 ${-0.46 * r},${0.82 * r} M0,${-0.98 * r} Q${0.06 * r},0 0,${0.98 * r} M${0.5 * r},${-0.72 * r} Q${0.64 * r},0 ${0.46 * r},${0.82 * r}" fill="none" stroke="${C.seaL}" stroke-width="6" stroke-linecap="round" opacity="0.8"/>`;
+    s += `<g transform="translate(0 ${-452 + b})">${back}</g>`;
+  } else {
+    const lock = sd => {
+      const x = v => n1(sd * v * r), y = v => n1(v * r);
+      return `<path d="M${x(0.02)},${y(-1.18)} C${x(0.62)},${y(-1.22)} ${x(1.16)},${y(-0.8)} ${x(1.1)},${y(0.0)}
+        C${x(1.08)},${y(0.4)} ${x(1.02)},${y(0.64)} ${x(0.86)},${y(0.74)} q${x(-0.16)},${y(0.04)} ${x(-0.14)},${y(-0.12)} q${x(0.06)},${y(-0.08)} ${x(0.12)},${y(-0.02)}
+        C${x(0.86)},${y(0.24)} ${x(0.9)},${y(-0.12)} ${x(0.78)},${y(-0.36)} C${x(0.62)},${y(-0.3)} ${x(0.46)},${y(-0.36)} ${x(0.36)},${y(-0.5)}
+        C${x(0.26)},${y(-0.44)} ${x(0.12)},${y(-0.5)} ${x(0.04)},${y(-0.66)} Z" fill="${sd < 0 ? C.sea : C.seaS}" ${ink()}/>
+        <path d="M${x(0.3)},${y(-1.08)} Q${x(0.82)},${y(-0.9)} ${x(0.96)},${y(-0.2)}" fill="none" stroke="${C.seaL}" stroke-width="5" stroke-linecap="round" opacity="0.85"/>`;
+    };
+    const pearls = [-0.56, -0.28, 0, 0.28, 0.56].map(t => `<circle cx="${n1(t * r)}" cy="${n1((-0.84 - 0.22 * (1 - Math.abs(t) * 1.3)) * r)}" r="${n1(0.06 * r)}" fill="${C.white}" ${ink(2.5)}/>`).join('');
+    s += `<g transform="translate(0 ${-452 + b})">${K2.head2(r, { expr: 'calm', ...o, back: '', ears: false, front: lock(-1) + lock(1) + pearls })}</g>`;
+  }
+  if (arms === 'shh') s += L(46, -360, 72, -318, 22) + L(72, -318, 24, -394, 20)
+    + `<path d="M14,${-402 + b} L12,${-450 + b}" stroke="${INK}" stroke-width="20" stroke-linecap="round"/><path d="M14,${-402 + b} L12,${-450 + b}" stroke="${C.skin}" stroke-width="12" stroke-linecap="round"/>`
+    + K.hand(24, -394 + b, 15);
+  return s;
+}
+// the forearm of Thetis coming in from above the frame, her hand round the baby's ankle (foot at x,y; s = scale of the baby)
+function armFromTop(x, y, s = 1) {
+  const x0 = x + 150 * s, x1 = x + 26 * s, y1 = y + 30 * s;
+  return `<path d="M${n1(x0)},-320 L${n1(x1)},${n1(y1)}" stroke="${INK}" stroke-width="${n1(44 * s)}" stroke-linecap="round"/>
+    <path d="M${n1(x0)},-320 L${n1(x1)},${n1(y1)}" stroke="${C.skin}" stroke-width="${n1(36 * s)}" stroke-linecap="round"/>
+    ${K.hand(x + 6 * s, y + 36 * s, n1(24 * s))}<path d="M${n1(x - 12 * s)},${n1(y + 32 * s)} q${n1(8 * s)},${n1(10 * s)} ${n1(20 * s)},${n1(8 * s)}" fill="none" stroke="${INK}" stroke-width="3.5" stroke-linecap="round"/>`;
+}
+// the baby on Thetis' outstretched hand (hook shot 9): hand at (hx, hy)
+const babyOnHand = (hx, hy, s, o = {}) => `<g transform="translate(${n1(hx)} ${n1(hy)}) rotate(${n1(o.sway || 0)}) scale(${0.55 * s})">${K.babyHang({ expr: 'neutral', ...o })}</g>${K.hand(hx + 2 * s, hy + 18 * s, n1(14 * s))}`;
+// Peleus holding the baby against his chest (his hands drawn again over the baby)
+function peleusBaby(o = {}) {
+  const b = o.breathe || 0;
+  return K2.peleus({ arms: 'hold', ...o }) + G(0, -246 + b, 0.42, K.babyAchilles({ expr: o.babyExpr || 'neutral', blink: o.babyBlink || 0 }))
+    + K.hand(-40, -266 + b, 15) + K.hand(40, -266 + b, 15);
+}
+// Peleus' nightcap (worn on a head of radius r)
+const nightcap = r => `<path d="M${n1(-1.0 * r)},${n1(-0.38 * r)} C${n1(-0.92 * r)},${n1(-1.35 * r)} ${n1(0.3 * r)},${n1(-1.56 * r)} ${n1(1.22 * r)},${n1(-1.0 * r)} Q${n1(1.5 * r)},${n1(-0.78 * r)} ${n1(1.42 * r)},${n1(-0.42 * r)} Q${n1(1.22 * r)},${n1(-0.74 * r)} ${n1(0.98 * r)},${n1(-0.44 * r)} Q0,${n1(-0.66 * r)} ${n1(-1.0 * r)},${n1(-0.38 * r)} Z" fill="#dcd2ec" ${ink()}/>
+  <path d="M${n1(-0.4 * r)},${n1(-1.1 * r)} Q${n1(0.2 * r)},${n1(-1.3 * r)} ${n1(0.8 * r)},${n1(-1.12 * r)}" fill="none" stroke="#b7a8d0" stroke-width="7" stroke-linecap="round"/>
+  <path d="M${n1(-1.02 * r)},${n1(-0.4 * r)} Q0,${n1(-0.7 * r)} ${n1(1.0 * r)},${n1(-0.46 * r)}" fill="none" stroke="#b7a8d0" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="${n1(1.44 * r)}" cy="${n1(-0.36 * r)}" r="${n1(0.17 * r)}" fill="#fffaf0" ${ink()}/>`;
+
+// ---------- small sets ----------
+function moonWater(f, water) {
+  // the moon high up and its broken reflection on the river (the wide river shots)
+  let refl = '';
+  for (let i = 0; i < 7; i++) { const w = 60 + 30 * Math.sin(f / 9 + i * 1.3); refl += `<rect x="${n1(1460 - w / 2 + Math.sin(f / 11 + i) * 10)}" y="${water + 14 + i * 26}" width="${n1(w)}" height="7" rx="3" fill="#cfe0f2" opacity="${(0.45 - i * 0.05).toFixed(2)}"/>`; }
+  return `${T.stars(f, 30, water - 100, 140)}${T.moon(1460, 190, 60)}${refl}`;
+}
+function hall(f, o = {}) {
+  // a dark night wall of the palace (stone blocks), for the hearth and the door
+  let blocks = '';
+  for (let r = 0; r < 8; r++) for (let k = 0; k < 10; k++) blocks += `<rect x="${k * 220 - (r % 2) * 110 - 60}" y="${r * 112}" width="216" height="108" rx="6" fill="#2c2433" stroke="#1a1520" stroke-width="5"/>`;
+  return `${T.sky('hallNight')}${blocks}<rect y="900" width="1920" height="300" fill="#2a2030"/><rect y="900" width="1920" height="10" fill="#000" opacity="0.3"/>
+    ${motes(f, 14, { col: '#c9d4ff', seed: o.seed || 17 })}`;
+}
+function caveIn(f) {
+  // inside Chiron's cave: rock walls, a fire in the back, herbs drying under the ceiling
+  let rocks = '';
+  for (let i = 0; i < 10; i++) { const a = S.rnd(i + 130), b = S.rnd(i + 170); rocks += `<ellipse cx="${n1(a * 1920)}" cy="${n1(150 + b * 520)}" rx="${n1(150 + a * 120)}" ry="${n1(70 + b * 60)}" fill="#4a3226" opacity="0.55"/>`; }
+  let herbs = '';
+  for (let i = 0; i < 6; i++) { const x = 980 + i * 120, y = 120 + (i % 2) * 30; herbs += `<path d="M${x},40 L${x},${y}" stroke="${INK}" stroke-width="3"/>${[0, 1, 2].map(k => `<ellipse cx="${x + (k - 1) * 12}" cy="${y + 18 + k * 6}" rx="8" ry="22" fill="${['#7a9a46', '#5a7030', '#8cb14a'][k]}" ${ink(2.5)} transform="rotate(${(k - 1) * 20} ${x + (k - 1) * 12} ${y + 18 + k * 6})"/>`).join('')}`; }
+  return `${T.sky('caveIn')}${rocks}<circle cx="260" cy="700" r="460" fill="url(#fireGlow)"/>${T.flame(f, 260, 880, 0.75, 2)}
+    <path d="M-100,0 Q300,170 760,96 Q1200,30 1520,150 Q1800,230 2020,90 L2020,-100 L-100,-100 Z" fill="#1c120d" ${ink(5)}/>${herbs}
+    <rect y="900" width="1920" height="300" fill="#2e1f16"/>${motes(f, 16, { col: '#ffcf8a', seed: 131 })}`;
+}
+function stoneTable(x0, x1, y) {
+  return `<rect x="${x0 + 26}" y="${y + 30}" width="${x1 - x0 - 52}" height="${1100 - y}" fill="#6c6870" ${ink(5)}/>
+    <path d="M${x0 + 90},${y + 90} l40,30 l-10,40 M${x1 - 160},${y + 120} l30,40 l40,10" fill="none" stroke="#56535a" stroke-width="5" stroke-linecap="round"/>
+    <rect x="${x0}" y="${y}" width="${x1 - x0}" height="40" rx="12" fill="#9a97a0" ${ink(5)}/><rect x="${x0 + 14}" y="${y + 6}" width="${x1 - x0 - 28}" height="10" rx="5" fill="#b7b4bc"/>`;
+}
+function garland(x0, x1, y, sag, k = 0) {
+  const mx = (x0 + x1) / 2, cy = y + sag * 2, d = `M${x0},${y} Q${mx},${cy} ${x1},${y}`;
+  let s = `<path d="${d}" fill="none" stroke="${INK}" stroke-width="22" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#6f8f3a" stroke-width="13" stroke-linecap="round"/>`;
+  for (let i = 1; i < 12; i++) { const t = i / 12, x = (1 - t) * (1 - t) * x0 + 2 * t * (1 - t) * mx + t * t * x1, yy = (1 - t) * (1 - t) * y + 2 * t * (1 - t) * cy + t * t * y;
+    s += i % 2 ? `<circle cx="${n1(x)}" cy="${n1(yy + 4)}" r="13" fill="${['#f2a6b8', '#f6e27a', '#fff6e0'][(i + k) % 3]}" ${ink(3)}/>`
+      : `<ellipse cx="${n1(x)}" cy="${n1(yy + 8)}" rx="18" ry="9" fill="#8cb14a" ${ink(3)} transform="rotate(${(i * 37) % 60 - 30} ${n1(x)} ${n1(yy + 8)})"/>`; }
+  return s;
+}
+function pelion(f) {
+  // the wedding on Mount Pelion: a warm sky, the mountains, pines, a grassy plateau
+  return `${T.sky('warm')}${T.sun(1500, 300, 90, '#fff1c2', '#ffd08a')}${T.cloud(380, 230, 1.1, '#fff6e2', f, 0.2, 0.8)}
+    <path d="M-100,660 L260,430 L520,600 L820,390 L1180,620 L1500,440 L2020,660 Z" fill="url(#mountain)"/>
+    ${T.pines(120, 760, 1.0)}${T.pines(1820, 770, 1.1)}${T.pines(1660, 760, 0.8)}
+    <rect y="740" width="1920" height="400" fill="url(#grass)"/><rect y="740" width="1920" height="10" fill="#000" opacity="0.12"/>
+    ${motes(f, 18, { col: '#fff6dc', seed: 141 })}`;
+}
+function feastTable(x0, x1, y) {
+  let s = '';
+  for (const x of [x0 + 70, (x0 + x1) / 2, x1 - 70]) s += `<rect x="${x - 18}" y="${y + 90}" width="36" height="${1060 - y}" fill="${C.woodS}" ${ink(5)}/>`;
+  s += `<rect x="${x0 - 20}" y="${y}" width="${x1 - x0 + 40}" height="28" rx="8" fill="${C.wood}" ${ink(5)}/>`;
+  let sc = `M${x0 - 26},${y + 20} L${x1 + 26},${y + 20} L${x1 + 30},${y + 118}`;
+  for (let x = x1 + 30; x > x0 - 30; x -= 60) sc += ` Q${x - 30},${y + 140} ${Math.max(x0 - 30, x - 60)},${y + 118}`;
+  s += `<path d="${sc} Z" fill="#f4ecd8" ${ink(5)}/><path d="M${x0 - 28},${y + 96} L${x1 + 28},${y + 96}" stroke="${C.teal}" stroke-width="12"/>`;
+  return s;
+}
+const goblet = (x, y, s = 1) => G(x, y, s, `<path d="M-22,-62 L22,-62 Q20,-26 0,-20 Q-20,-26 -22,-62 Z" fill="#e8bd55" ${ink(3.5)}/><ellipse cx="0" cy="-62" rx="22" ry="6" fill="#8a2433" ${ink(2.5)}/>
+  <rect x="-4" y="-22" width="8" height="18" fill="#c99230" ${ink(2.5)}/><ellipse cx="0" cy="-2" rx="16" ry="5" fill="#c99230" ${ink(2.5)}/>`);
+// a stone arch (the gate to the feast) – x0..x1, opening top `top`, ground y
+function archGate(x0, x1, top, y, inside) {
+  const w = x1 - x0, mx = (x0 + x1) / 2, cid = 'gate' + x0;
+  return `<defs><clipPath id="${cid}"><path d="M${x0 + 90},${y} L${x0 + 90},${top + 160} Q${mx},${top - 40} ${x1 - 90},${top + 160} L${x1 - 90},${y} Z"/></clipPath></defs>
+    <g clip-path="url(#${cid})">${inside}</g>
+    <path d="M${x0},${y} L${x0},${top + 120} Q${mx},${top - 160} ${x1},${top + 120} L${x1},${y} L${x1 - 90},${y} L${x1 - 90},${top + 160} Q${mx},${top - 40} ${x0 + 90},${top + 160} L${x0 + 90},${y} Z" fill="#c9b38a" ${ink(6)}/>
+    ${[0, 1, 2, 3, 4].map(k => `<path d="M${x0},${top + 220 + k * 130} l90,0 M${x1 - 90},${top + 160 + k * 130} l90,0" stroke="#a8936c" stroke-width="5"/>`).join('')}
+    ${garland(x0 + 20, x1 - 20, top + 40, 70, 1)}`;
+}
+
+// ---------- the heel close-up (shot 7): drawn big, not zoomed ----------
+function heelClose(f, l, ax, ay) {
+  let s = '';
+  // the leg (wet) from the ankle down out of the frame
+  s += cel(a => `<path d="M${ax - 96},${ay + 30} Q${ax - 112},${ay + 400} ${ax - 132},${ay + 760} L${ax + 132},${ay + 760} Q${ax + 112},${ay + 400} ${ax + 96},${ay + 30} Z" ${a}/>`, C.skin, C.skinS, -0.14, 0, 130);
+  s += `<path d="M${ax - 52},${ay + 170} Q${ax - 66},${ay + 360} ${ax - 76},${ay + 560}" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" opacity="0.4"/>
+    <path d="M${ax + 40},${ay + 230} Q${ax + 48},${ay + 330} ${ax + 52},${ay + 420}" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity="0.3"/>`;
+  for (const [dx, dy, rr] of [[-30, 200, 10], [20, 260, 8], [-60, 320, 9], [44, 360, 11], [-14, 420, 8], [64, 470, 9], [-50, 520, 10]]) s += `<ellipse cx="${ax + dx}" cy="${ay + dy}" rx="${rr * 0.8}" ry="${rr}" fill="#c8f4ef" ${ink(2.5)}/><circle cx="${ax + dx - 2}" cy="${ay + dy - 3}" r="2.5" fill="#fff"/>`;
+  // drips running down the leg and falling
+  for (let k = 0; k < 6; k++) { const side = k % 2 ? 1 : -1, t = ((l * 0.03 + k / 6) % 1), x = ax + side * (100 + 18 * t) + side * 6, y = ay + 160 + t * 760;
+    s += `<ellipse cx="${n1(x)}" cy="${n1(y)}" rx="9" ry="14" fill="#9fe0dc" ${ink(2.5)}/>`; }
+  // the foot above: heel up to the left, toes to the right (he hangs upside down, the sole faces up)
+  const foot = a => `<path d="M${ax - 92},${ay + 24} C${ax - 132},${ay - 70} ${ax - 124},${ay - 196} ${ax - 44},${ay - 214} C${ax + 40},${ay - 232} ${ax + 150},${ay - 226} ${ax + 212},${ay - 196} C${ax + 256},${ay - 172} ${ax + 254},${ay - 110} ${ax + 204},${ay - 96} C${ax + 150},${ay - 82} ${ax + 104},${ay - 40} ${ax + 92},${ay + 24} Z" ${a}/>`;
+  s += cel(foot, C.skin, C.skinS, -0.1, -0.08, 160);
+  for (const [dx, dy, rr] of [[214, -200, 25], [244, -168, 21], [254, -136, 18], [248, -106, 15]]) s += cel(a => `<circle cx="${ax + dx}" cy="${ay + dy}" r="${rr}" ${a}/>`, C.skin, C.skinS, -0.15, -0.15, rr);
+  // the dry heel: matte, a warm light on it
+  s += `<ellipse cx="${ax - 74}" cy="${ay - 130}" rx="34" ry="52" fill="#ffe7cc" opacity="0.6"/><path d="M${ax - 112},${ay - 92} Q${ax - 118},${ay - 160} ${ax - 74},${ay - 196}" fill="none" stroke="#fff2df" stroke-width="7" stroke-linecap="round" opacity="0.8"/>`;
+  // her forearm from the right, the palm behind the ankle, four fingers round the front
+  s += limb(ax + 1100, ay - 330, ax + 130, ay + 70, 128, C.skin, C.skinS);
+  s += cel(a => `<ellipse cx="${ax + 110}" cy="${ay + 70}" rx="74" ry="88" ${a}/>`, C.skin, C.skinS, -0.1, -0.1, 80);
+  [[4, 170, 40], [46, 176, 40], [88, 168, 38], [126, 150, 34]].forEach(([dy, len, w]) => {
+    s += limb(ax + 96, ay + dy, ax + 96 - len, ay + dy + 6, w, C.skin, C.skinS);
+    s += `<ellipse cx="${ax + 96 - len + 6}" cy="${ay + dy + 6}" rx="${n1(w * 0.28)}" ry="${n1(w * 0.22)}" fill="#fbe2d0" opacity="0.9"/>`;
+  });
+  s += limb(ax + 120, ay + 10, ax + 40, ay - 34, 40, C.skin, C.skinS);      // the thumb
+  return s;
+}
+
+// ---------- shots ----------
+const R = RUN({ TEXT, OFF: 0, card: null, tail: 1.3,
+  defs: () => `${T.grad('uwater', [[0, '#3fa9a2'], [0.4, '#1b6b70'], [1, '#062027']])}
+    ${T.grad('caveIn', [[0, '#2a1a14'], [1, '#4a3022']])}
+    ${T.radial('fireGlow', [[0, '#ffd27a', 0.75], [1, '#ff9a40', 0]], 0.5, 0.5, 0.5)}
+    ${T.radial('magicGlow', [[0, '#fff3c4', 0.95], [0.5, '#ffc24a', 0.45], [1, '#ff8a3a', 0]], 0.5, 0.5, 0.5)}
+    ${T.radial('redGlow', [[0, '#ff5a3a', 0.85], [0.55, '#8a1a1a', 0.45], [1, '#120608', 0]], 0.5, 0.5, 0.5)}
+    ${T.radial('goldGlow', [[0, '#ffd77a', 0.7], [1, '#ffb040', 0]], 0.5, 0.5, 0.5)}
+    ${T.radial('darkSpot', [[0.25, '#000', 0], [0.7, '#07050a', 0.75], [1, '#07050a', 0.92]], 0.5, 0.55, 0.6)}`,
+  SHOTS: [
+  // 1 · "Your mom is Thetis, a sea goddess," – on from the hook: the moonlit Styx, Thetis on her rock, the baby still screaming
+  { cue: 'Your mom is', draw(f, l, d) {
+    const tag = R.at('Thetis,');
+    const cam = S.camera(l, [[0, 900, 600, 1.14], [d, 885, 575, 1.18]]);
+    const tx = 760, ty = 700, b = bob(f), hx = tx + 170, hy = ty - 262 + b, loud = l < 18;
+    const sh = loud ? Math.sin(l * 2.7) * 3 : 0;
+    return { cam, bg: T.styxBank(f, tx, ty),
+      fg: `${G(tx, ty, 1, thetis2({ arms: 'holdOut', expr: loud ? 'worried' : 'smile', blink: blink(f, [tag + 14, tag + 52]), breathe: b }))}
+        ${babyOnHand(hx + sh, hy, 1, { expr: loud ? 'scream' : 'neutral', swing: Math.sin(l / (loud ? 3 : 8)) * (loud ? 0.7 : 1), sway: Math.sin(l / 10) * 3, blink: blink(f, [tag + 30]) })}
+        ${loud ? `<g opacity="${(1 - l / 18).toFixed(2)}">${shakeLines(hx, hy + 185, 70, l)}</g>` : ''}`,
+      hud: popLabel(f, tag, 420, 370, 92, 'THETIS', { sub: '(sea goddess)' }) };
+  } },
+  // 2 · "and she wants you immortal." – close on her: ambition in her eyes, the baby dangles in the corner
+  { cue: 'and she wants', draw(f, l, d) {
+    const imm = R.at('immortal.', 1, -2), wants = R.at('wants');
+    const cam = S.camera(l, [[0, 940, 560, 1.0], [d, 930, 540, 1.05]]);
+    const s = 1.75, tx = 800, ty = 1310, bb = bob(f), hx = tx + 170 * s, hy = ty + (-262 + bb) * s;
+    const hX = tx, hY = ty + (-452 + bb) * s, tw = easeOut(win(f, imm, imm + 6)), tk = 0.75 + 0.25 * Math.sin(f / 2.3);
+    const eyes = [-1, 1].map(sd => [hX + sd * 0.33 * 80 * s, hY + 0.12 * 80 * s]);
+    const spark = tw > 0 ? eyes.map(([x, y], k) => star4(x + 6, y - 6, 30 * tw * (k ? tk : 1.05 - tk * 0.3), '#ffffff', 0.95)).join('')
+      + star4(hX + 210, hY - 190, 46 * tw * tk, '#fff6c8', 0.9) + star4(hX - 230, hY - 120, 30 * tw * (1.6 - tk), '#e8fbff', 0.8) : '';
+    return { cam, bg: `${T.sky('cool')}${T.rays(f, 820, 520, 20, '#e8fbff', 0.14)}${motes(f, 22, { col: '#e8fbff', seed: 12 })}`,
+      fg: `${G(tx, ty, s, thetis2({ arms: 'holdOut', expr: f < wants ? 'calm' : 'determined', breathe: bb, blink: blink(f, [R.SH[1].a + 6]) }))}
+        ${babyOnHand(hx, hy, s, { expr: 'neutral', swing: Math.sin(l / 8), sway: Math.sin(l / 9) * 4, blink: blink(f, [imm + 8]) })}${spark}` };
+  } },
+  // 3 · "Hence the river." – wide and deadpan: down he goes again, rings on the water
+  { cue: 'Hence', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 548, 1.025]]);
+    const water = 700, at = R.at('river.', 1, -6), dip = ease(win(f, at, at + 9)), s = 0.62, x = 960, y0 = lerp(320, 676, dip);
+    const sp = win(f, at + 6, at + 22);
+    const ring = k => { const t = win(f, at + 8 + k * 5, at + 40 + k * 5); return t > 0 && t < 1 ? `<ellipse cx="${x}" cy="${water}" rx="${n1(40 + t * 360)}" ry="${n1(8 + t * 40)}" fill="none" stroke="#7fd0c8" stroke-width="5" opacity="${(0.7 * (1 - t)).toFixed(2)}"/>` : ''; };
+    const drops = sp > 0 && sp < 1 ? Array.from({ length: 12 }, (_, i) => { const a = Math.PI * (0.15 + 0.7 * S.rnd(i + 200)), v = 160 + 180 * S.rnd(i + 300);
+      return `<ellipse cx="${n1(x + Math.cos(a) * v * sp * (i % 2 ? 1 : -1))}" cy="${n1(water - Math.sin(a) * v * sp * 1.3 + 600 * sp * sp)}" rx="7" ry="9" fill="#e8fbf8" ${ink(2.5)}/>`; }).join('') : '';
+    return { cam, bg: T.styx(f, water, true) + moonWater(f, water),
+      fg: `${G(x, y0, s, K.babyHang({ expr: 'neutral', swing: Math.sin(l / 7) * 0.6 }))}
+        <rect x="-200" y="${water}" width="2320" height="600" fill="url(#styxw)"/>${T.seaBand(water, 380, 'none', '#3f8f92', f, 61)}
+        ${[0, 1, 2].map(ring).join('')}${drops}${armFromTop(x, y0, s)}
+        <path d="M-200,${water} L2120,${water}" stroke="#5fb3b0" stroke-width="5" opacity="0.6"/>` };
+  } },
+  // 4 · "Your dad is Peleus, a mortal king," – on the same bank, with a towel ready, a little wobbly on the wet rock
+  { cue: 'Your dad is', draw(f, l, d) {
+    const tag = R.at('Peleus,'), mo = R.at('mortal');
+    const cam = S.camera(l, [[0, 640, 470, 1.25], [d, 660, 455, 1.3]]);
+    const tx = 760, ty = 700, b = bob(f), hx = tx + 170, hy = ty - 262 + b;
+    const slip = f >= mo && f < mo + 16 ? Math.sin((f - mo) / 16 * Math.PI) : 0;
+    const wob = Math.sin(l / 7) * 1.6 + slip * -7;
+    return { cam, bg: T.styxBank(f, tx, ty),
+      fg: `${shadow(430, 700, 90, 0.25)}${G(430, 704, 1, K2.peleus({ arms: 'towel', expr: slip > 0.2 ? 'surprised' : 'smile', blink: blink(f, [tag + 16, mo + 30]), breathe: bob(f, 2), headTilt: slip * 8 }), wob)}
+        ${G(tx, ty, 1, thetis2({ arms: 'holdOut', expr: 'calm', breathe: b, look: -0.5 }))}${babyOnHand(hx, hy, 1, { expr: 'neutral', swing: Math.sin(l / 8), sway: Math.sin(l / 10) * 3 })}`,
+      hud: popLabel(f, tag, 1440, 820, 88, 'PELEUS', { sub: '(mortal)' }) };
+  } },
+  // 5 · "who was not consulted." – violet gag: he raises a finger, "um–", a red line strikes it
+  { cue: 'who was not', draw(f, l, d) {
+    const um = R.SH[4].a + 5, hit = R.at('consulted.', 1, 2), down = f >= hit + 8;
+    const cam = S.camera(l, [[0, 900, 560, 1.0], [d, 885, 545, 1.05]]);
+    return { cam, bg: T.gagBg(f, 'violet'),
+      fg: `${G(700, 1020, 1.32, K2.peleus({ arms: down ? 'towel' : 'finger', expr: down ? 'sad' : 'worried', breathe: bob(f), blink: blink(f, [um + 14]), headTilt: down ? -6 : 0 }))}
+        ${popG(f, um, 1090, 300, PR.speechBubble({ text: 'um–', w: 380, h: 200, size: 104, tail: [-250, 130] }))}
+        ${strike(f, hit, 955, 320, 1222, 286, { w: 13 })}` };
+  } },
+  // 6 · "Everything goes under," – under the water: the baby in glowing teal, only the hand and the heel above the surface
+  { cue: 'Everything', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 590, 1.06]]);
+    const surf = 250, x = 960 + Math.sin(l / 16) * 6, y0 = 196;
+    const wave = `M-200,${surf} ${Array.from({ length: 24 }, (_, i) => `L${-200 + i * 100},${n1(surf + Math.sin(i * 1.3 + f / 6) * 7)}`).join(' ')}`;
+    let bub = '';
+    for (let i = 0; i < 16; i++) { const a = S.rnd(i + 40), t = ((f * (0.012 + a * 0.01)) + a) % 1; bub += `<circle cx="${n1(x - 260 + a * 520 + Math.sin(t * 9 + i) * 14)}" cy="${n1(1000 - t * 740)}" r="${n1(5 + a * 12)}" fill="none" stroke="#d8fbf6" stroke-width="3" opacity="${(0.8 * (1 - t)).toFixed(2)}"/>`; }
+    for (let i = 0; i < 5; i++) { const t = ((l / 22) + i / 5) % 1; bub += `<circle cx="${n1(x + Math.sin(t * 7 + i) * 10)}" cy="${n1(492 - t * 240)}" r="${n1(8 + i % 3 * 4)}" fill="#e6fffb" fill-opacity="0.25" stroke="#e6fffb" stroke-width="3" opacity="${(1 - t).toFixed(2)}"/>`; }
+    const shafts = [0, 1, 2, 3].map(i => `<path d="M${560 + i * 260},${surf} L${640 + i * 260},${surf} L${520 + i * 300 + Math.sin(f / 30 + i) * 30},1100 L${380 + i * 300 + Math.sin(f / 30 + i) * 30},1100 Z" fill="#e6fffb" opacity="0.07"/>`).join('');
+    return { cam, bg: `${T.sky('styxs')}${T.stars(f, 16, 200, 160)}<rect x="-200" y="${surf}" width="2320" height="1000" fill="url(#uwater)"/>
+        <circle cx="960" cy="560" r="440" fill="#5fe0d0" opacity="0.22" filter="url(#soft)"/>${shafts}`,
+      fg: `${G(x, y0, 1, K.babyHang({ expr: 'surprised', swing: Math.sin(l / 10) * 0.6, blink: 0 }))}
+        <rect x="-200" y="${surf}" width="2320" height="1000" fill="#1b8a86" opacity="0.28"/>${bub}
+        <path d="${wave} L2120,${surf} L2120,${surf - 6}" fill="none" stroke="#bff3ec" stroke-width="6" opacity="0.8"/>${armFromTop(x, y0, 1)}` };
+  } },
+  // 7 · "except the heel in her hand." – extreme close-up: her fingers round the one dry heel, the leg dripping
+  { cue: 'except', draw(f, l, d) {
+    const tag = R.at('heel');
+    const cam = S.camera(l, [[0, 920, 520, 1.0], [d, 900, 495, 1.05]]);
+    const ax = 860, ay = 600, hp = camPt(cam, ax - 96, ay - 150);
+    return { cam, bg: `${T.sky('styxs')}<circle cx="${ax}" cy="${ay - 100}" r="520" fill="#2f8f8a" opacity="0.25" filter="url(#soft)"/>
+        <circle cx="${ax - 80}" cy="${ay - 140}" r="170" fill="#ffd9a0" opacity="0.18" filter="url(#soft)"/>${motes(f, 18, { col: '#bfe9e2', seed: 91 })}`,
+      fg: heelClose(f, l, ax, ay),
+      hud: `${popLabel(f, tag, 380, 250, 104, 'DRY')}${arrowTo(f, tag + 4, 470, 300, hp[0] - 12, hp[1] - 10, -0.25, { w: 10, head: 30 })}` };
+  } },
+  // 8 · "Tiny detail." – fast zoom out: the heel becomes a dot in the big night; tiny letters, tiny arrow
+  { cue: 'Tiny', draw(f, l, d) {
+    const tx = 760, ty = 700, b = bob(f), hx = tx + 170, hy = ty - 262 + b;
+    const t = easeOut(win(l, 0, 10)), z = Math.pow(7, 1 - t) * (1 + 0.04 * win(l, 10, d));
+    const cam = camAt(z, lerp(hx, 960, t), lerp(hy, 540, t));
+    const hp = camPt(cam, hx - 2, hy - 8), lab = Math.max(R.SH[7].a + 11, R.at('detail.'));
+    let lines = '';
+    if (l < 11) for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2 + 0.2, r0 = 260 + 400 * t; lines += `<path d="M${n1(960 + Math.cos(a) * r0)},${n1(540 + Math.sin(a) * r0)} l${n1(Math.cos(a) * 520)},${n1(Math.sin(a) * 520)}" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity="${(0.55 * (1 - t)).toFixed(2)}"/>`; }
+    return { cam, bg: T.styxBank(f, tx, ty),
+      fg: `${G(tx, ty, 1, thetis2({ arms: 'holdOut', expr: 'calm', breathe: b }))}${babyOnHand(hx, hy, 1, { expr: 'neutral', swing: Math.sin(l / 8), sway: 0 })}`,
+      hud: `${lines}${popLabel(f, lab, hp[0] + 120, hp[1] - 64, 28, 'tiny detail', { font: ITAL, sw: 6 })}${arrowTo(f, lab + 3, hp[0] + 74, hp[1] - 54, hp[0] + 6, hp[1] - 6, 0.3, { w: 4, head: 10 })}` };
+  } },
+  // 9 · "Then she tries a second trick, at night," – the palace of Phthia by moonlight, Thetis tiptoes with the baby
+  { cue: 'Then she tries', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 880, 560, 1.06], [d, 1000, 560, 1.1]]);
+    const p = l / d, step = l / 11, x = lerp(480, 1320, p), lift = Math.abs(Math.sin(step * Math.PI)) * 22, tilt = Math.sin(step * Math.PI) * 5;
+    const baby = G(0, -250, 0.44, K.babyAchilles({ expr: 'happy', blink: 0 }));
+    return { cam, bg: T.palace(f, { place: 'phthia', night: true, mid: true, seed: 41 }),
+      fg: `${shadow(x, 930, 100, 0.3)}${G(x, 930 - lift, 0.95, thetis2({ arms: 'carry', baby, expr: 'smirk', look: 1, blink: blink(f, [R.SH[8].a + 40]) }), tilt)}` };
+  } },
+  // 10 · "holding you in the fire." – a magic golden hearth fire; the baby giggles inside it, safe
+  { cue: 'holding', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.05], [d, 960, 585, 1.12]]);
+    const hop = Math.abs(Math.sin(l / 4)) * -10, bx = 960, by = 880 + hop;
+    let sp = '';
+    for (let i = 0; i < 14; i++) { const a = S.rnd(i + 60), t = ((l / 30) + a) % 1; sp += star4(700 + a * 520 + Math.sin(t * 6 + i) * 20, 900 - t * 520, 12 * Math.sin(t * Math.PI) + 2, '#fffbe6', 0.9); }
+    const arch = `<path d="M560,920 L560,520 Q960,240 1360,520 L1360,920 Z" fill="#8a7a72" ${ink(7)}/><path d="M640,920 L640,560 Q960,340 1280,560 L1280,920 Z" fill="#1a0f10" ${ink(6)}/>
+      ${[0, 1, 2, 3].map(k => `<path d="M560,${600 + k * 90} l80,0 M1280,${600 + k * 90} l80,0" stroke="#6a5c56" stroke-width="5"/>`).join('')}<rect x="520" y="900" width="880" height="40" rx="8" fill="#9a8a82" ${ink(5)}/>`;
+    return { cam, bg: `${hall(f, { seed: 19 })}<circle cx="960" cy="700" r="700" fill="url(#magicGlow)"/>${arch}`,
+      fg: `<circle cx="960" cy="760" r="420" fill="url(#magicGlow)"/>${G(960, 912, 1.7, PR.fire({ f, magic: true, glow: false }))}
+        ${G(bx, by, 0.72, K.babyAchilles({ expr: 'happy', armsUp: Math.floor(l / 6) % 2 === 0, breathe: 0 }))}
+        ${G(880, 905, 1, PR.flame(f, 0.9, true, 5))}${G(1046, 905, 1, PR.flame(f, 0.8, true, 7))}
+        ${[-1, 1].map(sd => { const x0 = 960 + sd * 470, y0 = 1180, hx = bx + sd * 60, hy = by - 78;
+          return `${limb(x0, y0, hx + sd * 8, hy + 6, 62, C.skin, C.skinS)}<path d="M${x0},${y0} L${n1(lerp(x0, hx, 0.5))},${n1(lerp(y0, hy, 0.5))}" stroke="${INK}" stroke-width="120" stroke-linecap="round"/>
+            <path d="M${x0},${y0} L${n1(lerp(x0, hx, 0.5))},${n1(lerp(y0, hy, 0.5))}" stroke="${C.gown}" stroke-width="110" stroke-linecap="round"/>${K.hand(hx, hy, 30)}`; }).join('')}${sp}` };
+  } },
+  // 11 · "Your dad walks in and screams." – the door flies open: Peleus in his nightshirt and nightcap, candle, scream
+  { cue: 'Your dad walks', draw(f, l, d) {
+    const scr = R.at('screams.', 1, -3), op = easeOut(win(l, 1, 7));
+    const cam = S.camera(l, [[0, 960, 560, 1.08], [d, 960, 525, 1.16]]);
+    const jit = f >= scr ? Math.sin(f * 2.9) * 5 : 0, a = op * 105 * Math.PI / 180;
+    const ex = 760 + 400 * Math.cos(a), grow = Math.sin(a) * 70;
+    const door = `<path d="M760,300 L${n1(ex)},${n1(300 - grow)} L${n1(ex)},${n1(900 + grow)} L760,900 Z" fill="#7a4e2e" ${ink(6)}/>
+      ${[0.25, 0.5, 0.75].map(k => `<path d="M760,${300 + k * 600} L${n1(ex)},${n1(300 - grow + k * (600 + 2 * grow))}" stroke="#5a3820" stroke-width="8"/>`).join('')}`;
+    const expr = l < 9 ? 'tired' : f < scr ? 'shocked' : 'scream';
+    return { cam, bg: `${hall(f, { seed: 23 })}<path d="M720,920 L720,270 L1200,270 L1200,920 Z" fill="#4a3426" ${ink(7)}/>
+        <rect x="760" y="300" width="400" height="600" fill="#e8b46a"/><circle cx="960" cy="560" r="380" fill="url(#fireGlow)"/>`,
+      fg: `${shadow(960 + jit, 900, 110, 0.3)}${G(960 + jit, 905, 1.06, K2.peleus({ nightshirt: true, arms: 'candle', expr, head: { wear: nightcap(72) }, blink: blink(f, [R.SH[10].a + 3]), breathe: bob(f) }))}
+        ${f >= scr ? shakeLines(960 + jit, 905 - 470 * 1.06, 120, f) : ''}${door}
+        <rect x="-200" y="-200" width="2320" height="1480" fill="#ffb04a" opacity="0.08"/>` };
+  } },
+  // 12 · "Your mom walks back into the sea." – dawn: she walks into the waves without turning round; dad and baby stay behind
+  { cue: 'Your mom walks', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 1000, 545, 1.05]]);
+    const p = ease(win(l, 3, d - 2)), fy = lerp(930, 652, p) - Math.abs(Math.sin(l / 6)) * 6 * (1 - p), sc = lerp(0.78, 0.46, p), fx = lerp(1060, 1250, p);
+    const depth = Math.max(0, 748 - fy) * 1.9, cut = fy - depth;
+    return { cam, bg: T.beach(f, { time: 'dawn' }),
+      fg: `<defs><clipPath id="thsea"><rect x="0" y="-300" width="1920" height="${n1(cut + 300)}"/></clipPath></defs>
+        ${depth < 4 ? shadow(fx, fy, 90 * sc, 0.2) : ''}<g clip-path="url(#thsea)">${G(fx, fy, sc, thetis2({ back: true, arms: 'down', breathe: bob(f) }))}</g>
+        ${depth > 3 ? `<ellipse cx="${n1(fx)}" cy="${n1(cut)}" rx="${n1(110 * sc + 10)}" ry="${n1(14 * sc + 4)}" fill="none" stroke="#f6f0dc" stroke-width="6" opacity="0.85"/>` : ''}
+        ${shadow(420, 1010, 110, 0.25)}${G(420, 1010, 1.02, peleusBaby({ expr: p < 0.3 ? 'shocked' : 'sad', look: 1, breathe: bob(f), blink: blink(f, [R.SH[11].a + 40]), babyBlink: blink(f, [R.SH[11].a + 22]) }))}` };
+  } },
+  // 13 · "And that's your parents' marriage." – dad and baby alone; a wave wipes out her footprints
+  { cue: "And that's", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 880, 600, 1.12], [d, 870, 612, 1.16]]);
+    const w = Math.sin(Math.PI * win(l, 4, d - 2)), reach = l > (4 + d) / 2 ? 1 : w, edge = lerp(600, 1040, w), edgeMax = lerp(600, 1040, reach);
+    let prints = '';
+    for (let k = 0; k < 10; k++) { const t = k / 9, x = lerp(1000, 1500, t), y = lerp(1040, 640, t), s = lerp(1, 0.55, t);
+      if (y < edgeMax - 10) continue;
+      for (const sd of [-1, 1]) prints += `<ellipse cx="${n1(x + sd * 22 * s + (k % 2 ? 8 : -8))}" cy="${n1(y + (sd > 0 ? -18 : 0) * s)}" rx="${n1(14 * s)}" ry="${n1(24 * s)}" fill="#b98f62" opacity="0.8"/>`; }
+    const foamD = `M-200,${n1(edge)} ${Array.from({ length: 22 }, (_, i) => `Q${-150 + i * 110},${n1(edge + 18 + Math.sin(i + f / 5) * 8)} ${-100 + i * 110},${n1(edge)}`).join(' ')}`;
+    return { cam, bg: T.beach(f, { time: 'dawn', sand: 600 }) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#4a3a6a" opacity="0.12"/>`,
+      fg: `${prints}${w > 0.01 ? `<path d="M-200,560 L2120,560 L2120,${n1(edge)} ${foamD.replace(/^M[^ ]+ /, '')} L-200,${n1(edge)} Z" fill="#5d8fae" opacity="0.8"/><path d="${foamD}" fill="none" stroke="#f6f0dc" stroke-width="10" stroke-linecap="round"/>` : ''}
+        ${shadow(420, 1010, 110, 0.25)}${G(420, 1012, 1.08, peleusBaby({ expr: 'tired', look: 1, breathe: bob(f), blink: blink(f, [R.SH[12].a + 30]), babyExpr: 'neutral', babyBlink: blink(f, [R.SH[12].a + 12]) }))}` };
+  } },
+  // 14 · "Oh, and at their wedding, the one goddess" – flashback in warm sepia: the feast on Mount Pelion, gods at the table
+  { cue: 'Oh,', draw(f, l, d) {
+    const tag = R.at('wedding,');
+    const cam = S.camera(l, [[0, 960, 540, 1.02], [d, 960, 556, 1.07]]);
+    const g = 1000, B = k => bob(f, k), bl = k => blink(f, [R.SH[13].a + 10 + k * 9]);
+    const figs = `${G(1690, 808, 0.6, K2.zeus({ expr: 'happy', breathe: B(6) }))}
+      ${G(300, g, 0.76, K2.apollo({ arms: 'cheer', expr: 'happy', breathe: B(1), blink: bl(1) }))}
+      ${G(540, g, 0.84, K2.athena({ expr: 'smile', breathe: B(2), blink: bl(2) }))}
+      ${G(790, g, 0.78, K2.peleus({ arms: 'cheer', expr: 'happy', head: { wear: K2.laurel(72) }, breathe: B(3) }))}
+      ${G(1010, g, 0.82, thetis2({ arms: 'down', expr: 'happy', breathe: B(4) }))}
+      ${G(1240, g, 0.84, K2.hera({ expr: 'proud', breathe: B(5), blink: bl(5) }))}
+      ${G(1460, g, 0.84, K2.aphrodite({ expr: 'happy', breathe: B(7) }))}`;
+    const items = `${G(470, 780, 0.5, PR.plate({}))}${G(1180, 780, 0.5, PR.plate({}))}${goblet(640, 784)}${goblet(900, 784)}${goblet(1110, 784)}${goblet(1360, 784)}${goblet(1560, 784)}
+      ${G(820, 790, 0.9, PR.grapes({}))}${T.vase(300, 742, 0.32)}${T.vase(1640, 742, 0.32)}`;
+    return { cam, bg: sepia(pelion(f)),
+      fg: sepia(`${figs}${feastTable(180, 1760, 770)}${items}${garland(-40, 660, 120, 60, 0)}${garland(620, 1300, 110, 66, 1)}${garland(1260, 1960, 120, 60, 2)}`),
+      hud: popLabel(f, tag, 960, 230, 92, 'THE WEDDING', { sub: '(before you)' }) };
+  } },
+  // 15 · "nobody invited, Strife, rolled in a" – at the gate: the one goddess not invited peeks in (in colour) and bowls the apple
+  { cue: 'nobody', draw(f, l, d) {
+    const tag = R.at('Strife,'), roll = R.at('rolled', 1, -4), go = easeOut(win(f, roll, roll + 8));
+    const cam = S.camera(l, [[0, 900, 560, 1.06], [d, 940, 545, 1.12]]);
+    const inside = `${T.sky('warm')}<circle cx="1180" cy="620" r="520" fill="#ffe2a0" opacity="0.5" filter="url(#soft)"/>${feastTable(760, 1640, 700)}
+      ${[880, 1060, 1260, 1460].map((x, k) => `<g opacity="0.5" filter="url(#blur4)">${G(x, 920, 0.62, k % 2 ? K2.hera({ expr: 'happy' }) : K2.peleus({ arms: 'cheer', expr: 'happy' }))}</g>`).join('')}
+      <rect y="900" width="1920" height="300" fill="#b08a5a"/>`;
+    const lean = 22 - go * 5, sx = 400, rad = lean * Math.PI / 180;
+    // the apple: in her low hand (the 'roll' hand, rotated with her lean), then rolling away to the right across the doorway
+    const hl = [150 * 0.95, -170 * 0.95], hand = [sx + hl[0] * Math.cos(rad) - hl[1] * Math.sin(rad), 1000 + hl[0] * Math.sin(rad) + hl[1] * Math.cos(rad)];
+    const ax = hand[0] + 40 + Math.max(0, f - roll - 8) * 40;
+    const apple = f >= roll - 2 ? G(go < 1 ? hand[0] + 40 * go : ax, go < 1 ? lerp(hand[1], 958, go) : 958, 1, PR.goldenApple({ r: 40, angle: (f - roll) * 24 })) : '';
+    const strifeSvg = G(sx, 1000, 0.95, K2.strife({ expr: 'smirk', arms: f >= roll - 2 ? 'roll' : 'down', blink: blink(f, [tag + 12]), breathe: bob(f) }), lean);
+    return { cam, bg: sepia(`${T.sky('dusk')}${T.cloud(300, 220, 1, '#fde3c2', f, 0.15, 0.6)}<path d="M-100,820 L300,650 L620,800 Z" fill="#5f596f"/><rect y="900" width="1920" height="300" fill="#6a5040"/>`),
+      fg: `${sepia(archGate(380, 1900, 160, 1000, inside))}${strifeSvg}${sepia(`<rect x="380" y="300" width="96" height="760" fill="#c9b38a" ${ink(6)}/>`)}${apple}`,
+      hud: popLabel(f, tag, 1440, 300, 92, 'STRIFE', { sub: '(not invited)' }) };
+  } },
+  // 16 · "golden apple that says," – under the table: the apple rolls between the legs of the gods and stops, glint
+  { cue: 'golden', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.0], [d, 960, 615, 1.05]]);
+    const stop = R.at('apple', 1, 4), p = easeOut(win(f, R.SH[15].a - 4, stop)), ax = lerp(-140, 960, p), ang = (ax + 140) / (2 * Math.PI * 70) * 360;
+    const legs = [240, 760, 1180, 1700].map(x => `<rect x="${x - 34}" y="120" width="68" height="840" fill="${C.woodS}" ${ink(6)}/><rect x="${x - 46}" y="300" width="92" height="40" rx="14" fill="${C.wood}" ${ink(5)}/>`).join('');
+    // the gods sitting at the table: gown hems, bare shins, sandals (behind the table legs)
+    const feet = [[440, '#9aa3a8'], [620, '#3f7fa8'], [960, '#c3e6de'], [1340, '#f2a7bd'], [1530, '#8c3b3b']].map(([x, col], k) => `${[-1, 1].map(sd => limb(x + sd * 36, 760, x + sd * 40, 930, 30, C.skin, C.skinS)
+        + `<path d="M${x + sd * 40 - 34},950 Q${x + sd * 40 + 4},906 ${x + sd * 40 + 40},950 Z" fill="${C.leather}" ${ink(4)}/>`).join('')}
+      <path d="M${x - 84},520 L${x + 84},520 L${x + 104},800 Q${x + 52},826 ${x},806 Q${x - 52},826 ${x - 104},800 Z" fill="${col}" ${ink(5)}/>`).join('');
+    const gl = win(f, stop, stop + 12);
+    return { cam, bg: sepia(`${T.sky('warm')}<rect y="0" width="1920" height="1080" fill="#2a1a10" opacity="0.5"/><rect y="940" width="1920" height="300" fill="#8a6a42"/>${feet}${legs}
+        <rect x="-200" y="-60" width="2320" height="190" fill="${C.wood}" ${ink(6)}/><rect x="-200" y="110" width="2320" height="40" fill="#f4ecd8" ${ink(5)}/>`),
+      fg: `${shadow(ax, 940, 56, 0.3)}${G(ax, 940 - 62, 1, PR.goldenApple({ r: 64, angle: ang }))}
+        ${gl > 0 && gl < 1 ? star4(ax - 30, 940 - 110, 70 * Math.sin(gl * Math.PI), '#fffbe6', 1) : ''}` };
+  } },
+  // 17 · "for the fairest." – close-up: the letters glow on the apple
+  { cue: 'for', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 530, 1.06]]);
+    const tt = win(l, 0, 16);
+    let sp = '';
+    for (let i = 0; i < 6; i++) { const t = ((l / 26) + i / 6) % 1; sp += star4(860 + t * 220, 560 + Math.sin(i * 2.1) * 50, 14 * Math.sin(t * Math.PI), '#fff8d8', 0.9); }
+    return { cam, bg: `<rect x="-200" y="-200" width="2320" height="1480" fill="#1a0f08"/><circle cx="960" cy="540" r="720" fill="url(#goldGlow)"/>${T.rays(f, 960, 540, 20, '#ffe2a0', 0.08)}${motes(f, 20, { col: '#ffe9b0', seed: 171 })}`,
+      fg: `${G(960, 560, 1, PR.goldenApple({ r: 250, glow: 0.7, text: tt, angle: Math.sin(l / 24) * 3 }))}${sp}`,
+      hud: popLabel(f, R.at('for', 1, 4), 960, 960, 74, 'FOR THE FAIREST', { sub: '(engraved)', fill: '#f6d35b' }) };
+  } },
+  // 18 · "Three goddesses are still fighting over it." – a cartoon fight cloud, three goddesses grabbing, the apple flying
+  { cue: 'Three', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 546, 1.06]]);
+    const j = k => Math.sin(f / 2.4 + k * 2.1) * 10, t0 = R.at('Three');
+    const heads = [[690, 360, K2.hera, 0], [960, 330, K2.athena, 1], [1230, 360, K2.aphrodite, 2]];
+    const gods = heads.map(([x, y, fn, k]) => G(x + j(k), y + 388 * 0.86 + j(k + 3) * 0.5, 0.86, fn({ arms: 'grab', expr: k === 2 ? 'surprised' : 'angry' }), j(k + 5) * 0.4)).join('');
+    const apx = 960 + Math.sin(f / 3.2) * 150, apy = 190 + Math.abs(Math.sin(f / 4)) * -50;
+    const name = (k, str) => { const [x, y] = camPt(cam, heads[k][0], heads[k][1] - 130); return popLabel(f, t0 + k * 5, x, Math.max(120, y), 46, str); };
+    return { cam, bg: T.gagBg(f, 'burst', '#fff3c4', 960, 560),
+      fg: `${gods}${G(apx, apy, 1, PR.goldenApple({ r: 44, angle: f * 9 }))}${G(960, 640, 1, PR.fightCloud({ R: 330, f, sleeves: ['#3f7fa8', '#9aa3a8', '#f2a7bd'] }))}`,
+      hud: `${name(0, 'HERA')}${name(1, 'ATHENA')}${name(2, 'APHRODITE')}` };
+  } },
+  // 19 · "Remember that apple." – the apple alone in a red glow, everything else dark
+  { cue: 'Remember that apple.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 520, 1.08]]);
+    const ps = S.popScale(l - 1), y = 540 - 30 * easeOut(win(l, 0, 8));
+    return { cam, bg: `<rect x="-200" y="-200" width="2320" height="1480" fill="#07040a"/><circle cx="960" cy="540" r="${n1(520 + Math.sin(f / 9) * 20)}" fill="url(#redGlow)"/>${motes(f, 14, { col: '#ff9a7a', seed: 191 })}`,
+      fg: ps > 0 ? `<g transform="translate(960 ${n1(y)}) scale(${ps.toFixed(3)})">${PR.goldenApple({ r: 150, glow: 1, glowCol: '#ff6a3a', angle: Math.sin(l / 12) * 6 })}</g>` : '' };
+  } },
+  // 20 · "So your dad hands you to Chiron, a centaur." – Mount Pelion at dusk, the baby goes up and over to the centaur
+  { cue: 'So your dad', draw(f, l, d) {
+    const tag = R.at('Chiron,'), hs = R.at('hands', 1, -2), t = ease(win(f, hs, hs + 22));
+    const cam = S.camera(l, [[0, 960, 560, 1.02], [d, 990, 545, 1.07]]);
+    const g = 960, px = 560, cx = 1330;
+    const P = [px + 32, g - 584], Q = [cx - 306, g - 462], bx = lerp(P[0], Q[0], t), by = lerp(P[1], Q[1], t) - Math.sin(Math.PI * t) * 90;
+    return { cam, bg: T.cave(f, { time: 'dusk' }),
+      fg: `${shadow(px, g, 100, 0.25)}${G(px, g, 1, K2.peleus({ arms: t < 0.45 ? 'lift' : 'down', expr: t < 0.45 ? 'smile' : 'happy', breathe: bob(f), blink: blink(f, [R.SH[19].a + 12]) }))}
+        ${shadow(cx + 40, g, 260, 0.25)}${G(cx, g, 1, K2.chiron({ arms: 'lift', expr: t > 0.8 ? 'happy' : 'smile', breathe: bob(f, 4), blink: blink(f, [tag + 10]) }))}
+        ${G(bx, by + 4, 0.42, K.babyAchilles({ expr: t > 0.1 && t < 0.9 ? 'surprised' : 'happy', armsUp: t > 0.1 && t < 0.9 }))}`,
+      hud: popLabel(f, tag, 1500, 220, 92, 'CHIRON', { sub: '(centaur)' }) };
+  } },
+  // 21 · "Half horse, half the best teacher in Greece." – the centaur on gold rays, two pointers
+  { cue: 'Half horse,', draw(f, l, d) {
+    const h1 = R.at('horse,'), h2 = R.at('best');
+    const cam = S.camera(l, [[0, 980, 560, 1.0], [d, 960, 545, 1.05]]);
+    const cx = 1060, g = 960, s = 1.05, horse = camPt(cam, cx + 170 * s, g - 300 * s), man = camPt(cam, cx - 150 * s, g - 460 * s);
+    return { cam, bg: `${T.gagBg(f, 'gold', '#fff1c2', 960, 640)}<rect y="${g}" width="1920" height="200" fill="#9a5a1e" opacity="0.45"/>`,
+      fg: `${shadow(cx + 40, g, 270, 0.25)}${G(cx, g, s, K2.chiron({ expr: f >= h2 ? 'proud' : 'smile', breathe: bob(f), blink: blink(f, [h1 + 14]) }))}`,
+      hud: `${popLabel(f, h1, 1560, 290, 92, 'HORSE')}${arrowTo(f, h1 + 4, 1560, 330, horse[0] + 30, horse[1] - 30, -0.25, { w: 9 })}
+        ${popLabel(f, h2, 400, 250, 92, 'TEACHER', { sub: '(best in Greece)' })}${arrowTo(f, h2 + 4, 520, 330, man[0] - 70, man[1] - 20, 0.25, { w: 9 })}` };
+  } },
+  // 22 · "Breakfast is lion guts and bear marrow." – inside the cave: a stone table, a grim bowl, disgust → determination
+  { cue: 'Breakfast', draw(f, l, d) {
+    const gross = R.at('lion'), det = R.at('marrow.', 1, 2), dg = easeOut(win(f, det, det + 6));
+    const cam = S.camera(l, [[0, 960, 560, 1.06], [d, 925, 575, 1.12]]);
+    const expr = f < gross ? 'surprised' : f < det ? 'disgust' : 'determined';
+    return { cam, bg: caveIn(f),
+      fg: `${G(1580, 990, 0.95, K2.chiron({ arms: 'ladle', expr: 'smile', breathe: bob(f, 3), blink: blink(f, [gross + 8]) }))}
+        ${G(680, 990 + dg * 10, 1.25, kidA({ expr, look: f < det ? 0 : 1, breathe: bob(f), blink: blink(f, [R.SH[21].a + 8]) }), dg * 5)}
+        ${stoneTable(360, 1280, 800)}${G(990, 812, 1.2, PR.breakfastBowl({ f }))}
+        ${G(1190, 812, 1, `<ellipse cx="0" cy="-10" rx="50" ry="14" fill="#c08a52" ${ink(4)}/><path d="M-30,-14 L60,-70" stroke="${INK}" stroke-width="12" stroke-linecap="round"/><path d="M-30,-14 L60,-70" stroke="#c08a52" stroke-width="6" stroke-linecap="round"/>`)}` };
+  } },
+  // 23 · "At six, you" – outside the cave, hands on hips: AGE 6
+  { cue: 'At six,', draw(f, l, d) {
+    const tag = R.at('six,');
+    const cam = S.camera(l, [[0, 900, 600, 1.15], [d, 880, 580, 1.22]]);
+    return { cam, bg: T.cave(f),
+      fg: `${shadow(880, 935, 110, 0.22)}${G(880, 935, 1.25, kidA({ arms: 'hips', expr: 'proud', breathe: bob(f), blink: blink(f, [tag + 12]) }))}`,
+      hud: popLabel(f, tag, 1380, 330, 104, 'AGE 6', { rot: -4 }) };
+  } },
+  // 24 · "drag home dead lions" – he drags a knocked-out lion home by the tail
+  { cue: 'drag', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 600, 1.08], [d, 950, 600, 1.12]]);
+    const g = 940, kx = 600 + l * 5, st = Math.abs(Math.sin(l / 4)) * -7, H = K2.KID_DRAG_HAND, ls = 0.85;
+    const hx = kx + H[0], hy = g + st + H[1], bump = Math.max(0, Math.sin((l - 6) / 7 * Math.PI)) * (l > 6 && l < 13 ? -14 : 0);
+    return { cam, bg: mirror(T.cave(f)),
+      fg: `${shadow(hx - 250 * ls - 30, g, 130, 0.2)}${G(hx - 250 * ls, g + bump, ls, K.lionKO({ tailX: 250, tailY: (hy - g - bump) / ls }))}
+        ${shadow(kx, g, 80, 0.22)}${G(kx, g + st, 1, kidA({ arms: 'drag', expr: 'proud', blink: blink(f, [R.SH[23].a + 20]) }))}` };
+  } },
+  // 25 · "and wild boars," – second trip at dusk: a boar, the pile at the cave grows
+  { cue: 'and wild', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1080, 600, 1.12], [d, 1110, 590, 1.16]]);
+    const g = 940, kx = 820 + l * 6, st = Math.abs(Math.sin(l / 4)) * -7, H = K2.KID_DRAG_HAND, bs = 0.8;
+    const hx = kx + H[0], hy = g + st + H[1];
+    const pile = `${G(1500, g - 6, 0.8, K.lionKO({}))}${G(1520, g - 92, 0.72, K.lionKO({}), -6)}`;
+    return { cam, bg: mirror(T.cave(f, { time: 'dusk' })),
+      fg: `${shadow(1500, g, 170, 0.22)}${pile}${shadow(hx - 210 * bs - 20, g, 110, 0.2)}${G(hx - 210 * bs, g, bs, PR.boarKO({ tailX: 210, tailY: (hy - g) / bs }))}
+        ${shadow(kx, g, 80, 0.22)}${G(kx, g + st, 1, kidA({ arms: 'drag', expr: 'happy' }))}` };
+  } },
+  // 26 · "and you run down deer without dogs." – the meadow: he overtakes a deer; a dog sits and watches. DOGS: 0
+  { cue: 'and you run', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 580, 1.0], [d, 980, 570, 1.04]]);
+    const dx = 160 + l * 14, kx = -160 + l * 29, kb = Math.abs(Math.sin(l / 2.6)) * -16, look = clamp((kx - 1620) / 700, -1, 1);
+    return { cam, bg: T.meadow(f),
+      fg: `${shadow(dx, 930, 120, 0.2)}${G(dx, 930, 0.85, PR.deer({ phase: (l / 13) % 1 }))}
+        ${G(kx - 520, 700, 1, PR.speedLines({ w: 380, h: 220, f: l, n: 6 }))}${shadow(kx, 960, 80, 0.2)}${G(kx, 960 + kb, 1.05, kidA({ pose: 'run', arms: 'pump', expr: 'happy' }), 4)}
+        ${shadow(1640, 1010, 90, 0.22)}${G(1640, 1010, 0.85, PR.dog({ look, expr: f > R.at('dogs.') ? 'sad' : 'watch', wag: Math.sin(f / 3) * 10 }))}`,
+      hud: popLabel(f, R.at('without'), 360, 200, 84, 'DOGS: 0', { rot: -3 }) };
+  } },
+  // 27 · "Chiron teaches you to fight," – red-gold rays: wooden sword against the teacher's staff, clack
+  { cue: 'Chiron teaches', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1000, 580, 1.04], [d, 1020, 560, 1.1]]);
+    const hits = [R.at('teaches', 1, 0), R.at('fight,', 1, 0)];
+    const lu = Math.max(...hits.map(h => { const t = f - h; return t < -6 || t > 10 ? 0 : t < 0 ? easeOut((t + 6) / 6) : 1 - easeOut(t / 10); }));
+    const kx = 940 + 190 * lu, hitNow = hits.some(h => f >= h && f < h + 5);
+    return { cam, bg: `${T.gagBg(f, 'heroic', '#ffe7a8', 960, 640)}<rect y="960" width="1920" height="200" fill="#5a2a1c" opacity="0.55"/>`,
+      fg: `${shadow(1420, 960, 260, 0.25)}${G(1380, 960, 0.95, K2.chiron({ arms: 'staff', expr: 'determined', breathe: bob(f) }), -lu * 3)}
+        ${shadow(kx, 960, 80, 0.25)}${G(kx, 960, 1.1, kidA({ arms: 'sword', expr: 'determined', breathe: bob(f, 2) }), lu * 5)}
+        ${hitNow ? star4(1284, 540, 60, '#fffbe6', 1, true) : ''}` };
+  } },
+  // 28 · "to heal," – golden light: he bandages a rabbit's paw with herbs
+  { cue: 'to heal,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 880, 620, 1.2], [d, 870, 600, 1.26]]);
+    const g = 990, ks = 1.15, kx = 760, hand = [kx + 160 * ks, g - 214 * ks], rs = 0.9;
+    const stump = `<path d="M${hand[0] - 90},${g + 6} L${hand[0] - 70},${hand[1] + 36 * rs} L${hand[0] + 50},${hand[1] + 36 * rs} L${hand[0] + 70},${g + 6} Z" fill="#8a5a36" ${ink(5)}/><ellipse cx="${hand[0] - 10}" cy="${hand[1] + 36 * rs}" rx="62" ry="16" fill="#c9a06a" ${ink(4)}/>`;
+    return { cam, bg: T.meadow(f, { time: 'gold' }),
+      fg: `${stump}${G(hand[0] - 22 * rs, hand[1] + 36 * rs, rs, PR.rabbit({ bandage: true, ear: 0.2 + 0.1 * Math.sin(f / 8) }))}
+        ${shadow(kx, g, 90, 0.2)}${G(kx, g, ks, kidA({ arms: 'shoulder', expr: 'calm', breathe: bob(f), blink: blink(f, [R.SH[27].a + 14]) }))}` };
+  } },
+  // 29 · "to play the lyre." – Chiron holds out a little lyre, it lands in the kid's arms
+  { cue: 'to play', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 920, 560, 1.08], [d, 940, 560, 1.12]]);
+    const fly = easeOut(win(l, 5, 12)), g = 960, cx = 1360, cs = 0.95, ks = 1.15, kx = 640;
+    const from = [cx - 392 * cs, g - 436 * cs], to = [kx, g - 122 * ks];
+    const lyre = fly > 0 && fly < 1 ? K2.lyre(lerp(from[0], to[0], fly), lerp(from[1], to[1], fly) - Math.sin(fly * Math.PI) * 80, lerp(0.68, 0.71, fly), { rot: fly * 360 }) : '';
+    return { cam, bg: T.cave(f, { time: 'dusk' }),
+      fg: `${shadow(cx + 40, g, 250, 0.22)}${G(cx, g, cs, K2.chiron({ arms: fly <= 0 ? 'offer' : 'down', expr: 'smile', breathe: bob(f) }))}
+        ${shadow(kx, g, 80, 0.22)}${G(kx, g, ks, kidA({ arms: fly >= 1 ? 'lyre' : 'down', expr: fly >= 1 ? 'surprised' : 'smile', breathe: bob(f) }))}${lyre}` };
+  } },
+  // 30 · "The lyre, you think, is useless." – a sour pluck, a sour face, the thought: USELESS
+  { cue: 'The lyre,', n: 2, draw(f, l, d) {
+    const pl = R.at('think,', 1, -2), use = R.at('useless.');
+    const cam = S.camera(l, [[0, 900, 520, 1.25], [d, 900, 505, 1.3]]);
+    const ks = 1.35, g = 1010, lyY = g - 122 * ks;
+    let sour = '';
+    if (f >= pl) {
+      for (let i = 0; i < 3; i++) { const t = ((f - pl) / 26 + i / 3) % 1; sour += `<text x="${n1(980 + t * 90 + i * 20)}" y="${n1(lyY - 60 - t * 170)}" font-size="58" fill="#9aa86a" stroke="${INK}" stroke-width="4" paint-order="stroke" opacity="${(1 - t).toFixed(2)}" transform="rotate(${-20 + i * 14} ${n1(980 + t * 90)} ${n1(lyY - 60 - t * 170)})">♪</text>`; }
+      const v = Math.max(0, 1 - (f - pl) / 18) * 6;
+      for (let k = -2; k <= 2; k++) sour += `<path d="M${900 + k * 6},${n1(lyY - 6)} q${n1(Math.sin(f * 2.4 + k) * v)},-30 0,-60" fill="none" stroke="#fff6d8" stroke-width="3" opacity="0.9"/>`;
+    }
+    const head = camPt(cam, 900, g - 284 * ks - 60);
+    return { cam, bg: T.gagBg(f, 'violet'),
+      fg: `${G(900, g, ks, kidA({ arms: 'lyre', expr: f < pl ? 'neutral' : 'disgust', breathe: bob(f), blink: blink(f, [R.SH[29].a + 8]) }))}${sour}`,
+      hud: `${popG(f, use - 3, 1420, 300, PR.thoughtBubble({ w: 460, h: 230, tail: [n1(head[0] - 1420 + 100), n1(head[1] - 300)] }))}
+        ${popLabel(f, use, 1420, 330, 96, 'USELESS', { fill: '#f6d35b', rot: -8 })}` };
+  } },
+  // 31 · "Hold that thought." – push in on the lyre, the rest goes dark, a soft gold shimmer; the thought hangs there, frozen
+  { cue: 'Hold that', draw(f, l, d) {
+    const ks = 1.35, g = 1010, lyY = g - 122 * ks;
+    const cam = camAt(lerp(2.0, 2.45, ease(l / d)), 905, lyY - 30);
+    let sh = '';
+    for (let i = 0; i < 9; i++) { const a = S.rnd(i + 310), t = ((l / 34) + a) % 1; sh += star4(870 + a * 70, lyY - 20 - t * 120, 9 * Math.sin(t * Math.PI), '#fff1b0', 0.95); }
+    const dim = 1 - 0.55 * win(l, 0, 14);
+    return { cam, bg: T.gagBg(f, 'violet'),
+      fg: `${G(900, g, ks, kidA({ arms: 'lyre', expr: 'disgust', breathe: bob(f) * 0.5 }))}<circle cx="900" cy="${n1(lyY - 30)}" r="90" fill="url(#goldGlow)"/>${sh}`,
+      hud: `<rect width="1920" height="1080" fill="url(#darkSpot)"/>
+        <g opacity="${dim.toFixed(2)}" filter="url(#greyF)">${G(1560, 190, 0.62, PR.thoughtBubble({ w: 460, h: 230, tail: [-260, 200] }))}${G(1560, 220, 0.62, S.word(0, 0, 96, 'USELESS', { fill: '#f6d35b', extra: 'transform="rotate(-8)"' }))}</g>` };
+  } },
+  // 32 · "Back home, a new boy moves in. Patroclus." – the hall of Phthia: dark curls and a bundle at the door, Achilles peeks
+  { cue: 'Back home,', draw(f, l, d) {
+    const tag = R.at('Patroclus.'), seen = R.at('new');
+    const cam = S.camera(l, [[0, 1000, 560, 1.05], [d, 1050, 560, 1.1]]);
+    const walk = easeOut(win(l, 4, 46)), px = lerp(1560, 1400, walk), pst = walk < 1 ? Math.abs(Math.sin(l / 4)) * -6 : 0;
+    const door = `<path d="M1300,862 L1300,420 Q1460,330 1620,420 L1620,862 Z" fill="#cfe6ee" ${ink(7)}/><path d="M1300,700 Q1460,640 1620,700 L1620,862 L1300,862 Z" fill="#9cc49a"/>
+      <path d="M1300,862 L1300,420 Q1460,330 1620,420 L1620,862" fill="none" stroke="#8a5a36" stroke-width="22"/><path d="M1300,862 L1300,420 Q1460,330 1620,420 L1620,862" fill="none" ${ink(5)}/>`;
+    return { cam, bg: T.palace(f, { place: 'phthia', seed: 51 }) + door,
+      fg: `${shadow(px, 935, 85, 0.22)}${G(px, 935 + pst, 1.1, kidP({ arms: 'bundle', expr: f >= tag ? 'smile' : 'calm', blink: blink(f, [tag + 10]) }))}
+        ${G(600, 935, 1.1, kidA({ expr: f < seen ? 'neutral' : 'surprised', look: 1, blink: blink(f, [R.SH[31].a + 6]) }), 13)}
+        ${T.column(560, 150, 860, { col: '#e8cfb0', colS: '#c9a585', cap: '#e0bf98' })}`,
+      hud: popLabel(f, tag, 1360, 200, 84, 'PATROCLUS') };
+  } },
+  // 33 · "killed another kid over a game of dice." – two knucklebones tumble on the stone floor and stop. BY ACCIDENT
+  { cue: 'killed', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 528, 1.08]]);
+    const stopF = R.at('game', 1, 0), st = R.at('dice.', 1, 2);
+    const die = (k, x1, y1) => { const t = win(f, R.SH[32].a, stopF + k * 3), e = easeOut(t), x = lerp(-150 - k * 120, x1, e), y = y1 - Math.abs(Math.sin(e * Math.PI * 3)) * 90 * (1 - e);
+      return `${shadow(x, y1 + 46, 46 * (1 - 0.3 * (1 - e)), 0.35)}${G(x, y, 1, PR.dice({ size: 100, rot: (1 - e) * 900 + k * 40, side: t < 1 ? Math.floor(f / 3 + k) % 4 : k * 2 }))}`; };
+    let slabs = '';
+    for (let r = 0; r < 5; r++) for (let k = 0; k < 7; k++) slabs += `<rect x="${k * 300 - (r % 2) * 150 - 40}" y="${r * 230 - 40}" width="294" height="224" rx="10" fill="${['#6e6a72', '#77737b', '#67636b'][(r + k) % 3]}" stroke="#4a464e" stroke-width="6"/>`;
+    return { cam, bg: `${slabs}<circle cx="960" cy="560" r="620" fill="#e8e4f0" opacity="0.12" filter="url(#soft)"/><rect x="-200" y="-200" width="2320" height="1480" fill="#1a1626" opacity="0.18"/>`,
+      fg: `${die(0, 820, 600)}${die(1, 1080, 650)}${stamp(f, st, 960, 860, 74, 'BY ACCIDENT', { rot: -7 })}` };
+  } },
+  // 34 · "Your dad's reaction?" – the throne, chin in hand
+  { cue: 'reaction?', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 520, 1.12], [d, 960, 505, 1.17]]);
+    const banners = [420, 1500].map(x => `<path d="M${x - 70},120 L${x + 70},120 L${x + 70},620 L${x},580 L${x - 70},620 Z" fill="#8a2a3a" ${ink(5)}/><path d="M${x - 40},180 q20,-20 40,0 q20,20 40,0" fill="none" stroke="#efbf4f" stroke-width="8" stroke-linecap="round"/>`).join('');
+    return { cam, bg: T.palace(f, { place: 'phthia', window: false, seed: 61 }) + banners,
+      fg: `${shadow(960, 960, 170, 0.25)}${G(960, 960, 1.1, PR.throne({}))}${G(960, 960 - 66 * 1.1, 1.1, K2.peleus({ pose: 'sit', arms: 'chin', expr: 'neutral', breathe: bob(f), blink: blink(f, [R.SH[33].a + 10]) }))}` };
+  } },
+  // 35 · "Perfect. New best friend." – gold rays: dad beams and pushes the two boys together
+  { cue: 'Perfect.', draw(f, l, d) {
+    const nw = R.at('New', 1, -2), push = easeOut(win(f, nw, nw + 8)), bump = f > nw + 8 && f < nw + 16 ? Math.sin((f - nw - 8) / 8 * Math.PI) * 6 : 0;
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 545, 1.05]]);
+    const ax = lerp(520, 830, push) - bump, px = lerp(1420, 1090, push) + bump;
+    return { cam, bg: `${T.gagBg(f, 'gold', '#fff1c2', 960, 560)}<rect y="1000" width="1920" height="200" fill="#9a5a1e" opacity="0.4"/>`,
+      fg: `${G(960, 960, 1.0, K2.peleus({ arms: push < 0.5 ? 'cheer' : 'out', expr: 'happy', breathe: bob(f) }))}
+        ${shadow(ax, 1010, 80, 0.22)}${G(ax, 1010, 1.05, kidA({ expr: push < 1 ? 'surprised' : 'smile', blink: blink(f, [nw + 20]) }), bump)}
+        ${shadow(px, 1010, 80, 0.22)}<g transform="translate(${n1(px)} 1010) scale(-1.05 1.05)">${kidP({ arms: push >= 1 ? 'shoulder' : 'down', expr: 'smile' })}</g>` };
+  } },
+  // 36 · "He's a year older, and" – side by side by the window: +1 YEAR
+  { cue: "He's a", draw(f, l, d) {
+    const tag = R.at('year');
+    const cam = S.camera(l, [[0, 960, 600, 1.15], [d, 960, 585, 1.2]]);
+    const top = camPt(cam, 1110, 950 - 298 * 1.15 - 120);
+    return { cam, bg: T.palace(f, { place: 'phthia', seed: 71 }),
+      fg: `${shadow(810, 950, 80, 0.22)}${G(810, 950, 1.15, kidA({ expr: 'grumpy', look: 1, breathe: bob(f), blink: blink(f, [tag + 10]) }))}
+        ${shadow(1110, 950, 80, 0.22)}${G(1110, 950, 1.15, kidP({ expr: 'calm', breathe: bob(f, 3) }))}`,
+      hud: `${popLabel(f, tag, 1500, 250, 90, '+1 YEAR', { rot: 4 })}${arrowTo(f, tag + 4, 1420, 280, top[0] + 60, top[1] + 30, 0.3, { w: 9 })}` };
+  } },
+  // 37 · "the only one who can calm you down." – fuming red, his hand on the shoulder, calm teal
+  { cue: 'the only', draw(f, l, d) {
+    const cm = R.at('calm', 1, -4), c = easeOut(win(f, cm, cm + 10));
+    const cam = S.camera(l, [[0, 960, 580, 1.1], [d, 960, 566, 1.14]]);
+    const g = 960, s = 1.25, ax = 1080, px = ax - 262, jit = c < 0.5 ? Math.sin(f * 2.6) * 3 : 0;
+    return { cam, bg: `${T.sky('heroic')}<g opacity="${c.toFixed(2)}">${T.sky('cool')}</g>${T.rays(f, 960, 640, 18, c < 0.5 ? '#ffd0a0' : '#e8fbff', 0.12)}
+        <rect y="${g}" width="1920" height="200" fill="#2a1a1a" opacity="0.35"/>`,
+      fg: `${shadow(px, g, 85, 0.22)}${G(px, g, s, kidP({ arms: f >= cm - 2 ? 'shoulder' : 'down', expr: 'calm', breathe: bob(f, 2) }))}
+        ${shadow(ax, g, 85, 0.22)}${G(ax + jit, g, s, kidA({ expr: c < 0.5 ? 'angry' : 'calm', steam: c < 0.7, steamT: (l % 18) / 18, breathe: bob(f) }))}` };
+  } },
+  // 38 · "In the hall hangs your dad's armor, a wedding gift from the gods." – the armour in a beam of light, the gift tag swings
+  { cue: 'In the hall', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 975, 520, 1.1]]);
+    const gift = R.at('gift');
+    let sh = '';
+    for (let i = 0; i < 6; i++) { const t = ((l / 40) + i / 6) % 1; sh += star4(840 + S.rnd(i + 3) * 260, 380 + S.rnd(i + 9) * 380, 16 * Math.sin(t * Math.PI), '#fffbe6', 0.9); }
+    return { cam, bg: `${T.palace(f, { place: 'phthia', window: false, mid: true, seed: 81 })}<rect x="-200" y="-200" width="2320" height="1480" fill="#140a06" opacity="0.6"/>
+        <path d="M640,-60 L900,-60 L1230,960 L700,960 Z" fill="#fff2c8" opacity="0.16"/><ellipse cx="965" cy="955" rx="300" ry="40" fill="#fff2c8" opacity="0.18"/>${motes(f, 18, { col: '#fff2c8', x0: 700, w: 520, seed: 83 })}`,
+      fg: `${G(960, 952, 1.2, PR.armorStand({ giftTag: true, tagSwing: Math.sin(l / 9) * 9 + (f > gift && f < gift + 20 ? Math.sin((f - gift) / 20 * Math.PI * 2) * 8 : 0) }))}${sh}` };
+  } },
+  // 39 · "Remember that armor." – push in on the shield with the three waves, a glint, the same red glow as the apple
+  { cue: 'Remember that armor.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.0], [d, 960, 534, 1.07]]);
+    const g = win(l, 5, 18), gx = lerp(560, 1360, g);
+    return { cam, bg: `<rect x="-200" y="-200" width="2320" height="1480" fill="#07040a"/><circle cx="960" cy="540" r="${n1(540 + Math.sin(f / 9) * 20)}" fill="url(#redGlow)"/>${motes(f, 14, { col: '#ff9a7a', seed: 193 })}`,
+      fg: `${K.shield(960, 540, 270)}<defs><clipPath id="shclip"><circle cx="960" cy="540" r="262"/></clipPath></defs>
+        ${g > 0 && g < 1 ? `<g clip-path="url(#shclip)"><path d="M${n1(gx - 60)},200 L${n1(gx + 20)},200 L${n1(gx - 180)},880 L${n1(gx - 260)},880 Z" fill="#fff8e0" opacity="0.5"/></g>` : ''}
+        ${g >= 0.9 ? star4(1110, 340, 46 * Math.max(0, 1 - (l - 17) / 12), '#fffbe6', 1) : ''}` };
+  } },
+  // 40 · "And your mom?" – dusk sea: far out in the waves, Thetis watches
+  { cue: 'And your mom?', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 560, 1.06], [d, 880, 560, 1.1]]);
+    const x = 760, fy = 820, s = 0.44, cut = 760 + Math.sin(f / 10) * 4;
+    return { cam, bg: T.beach(f, { time: 'dusk', sand: 920 }),
+      fg: `<defs><clipPath id="farsea"><rect x="0" y="-300" width="1920" height="${n1(cut + 300)}"/></clipPath></defs>
+        <g clip-path="url(#farsea)">${G(x, fy, s, thetis2({ arms: 'down', expr: 'sad', breathe: bob(f), blink: blink(f, [R.SH[39].a + 16]) }))}</g>
+        <ellipse cx="${x}" cy="${n1(cut)}" rx="66" ry="10" fill="none" stroke="#f6f0dc" stroke-width="5" opacity="0.7"/>${T.seaBand(cut + 6, 120, 'none', '#f2a65e', f, 33)}` };
+  } },
+  // 41 · "She knows exactly how your life ends." – in her hands: the short golden thread from the hook
+  { cue: 'She knows', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.0], [d, 960, 640, 1.1]]);
+    const s = 2.4, y0 = 1330, ends = R.at('ends.', 1, -4), glow = 0.8 + 0.2 * Math.sin(f / 5);
+    const held = `<circle cx="0" cy="-296" r="${n1(110 * glow)}" fill="url(#goldGlow)"/><circle cx="0" cy="-296" r="${n1(40 * glow)}" fill="#fff3c4" opacity="0.35"/>${G(0, -296, 1.25, PR.thread({ len: 68 }))}${star4(14, -306, 10 * glow, '#fffbe6', 0.95)}`;
+    return { cam, bg: `${T.sky('plum')}<circle cx="960" cy="540" r="560" fill="#4a2f5a" opacity="0.5" filter="url(#soft)"/>
+        <g opacity="0.14">${G(1300, 260, 0.75, PR.shears({ open: lerp(18, 8, win(f, ends, ends + 14)) }))}</g>${motes(f, 22, { col: '#e9d8ff', seed: 51 })}`,
+      fg: G(960, y0, s, thetis2({ arms: 'pinch', held, expr: f < ends ? 'calm' : 'sad', look: 0, breathe: bob(f) * 0.5, blink: blink(f, [R.SH[40].a + 18, ends + 8]) })) };
+  } },
+  // 42 · "She just isn't saying." – she hides it behind her back, a finger on her lips
+  { cue: 'She just', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 470, 1.3], [d, 960, 455, 1.36]]);
+    const s = 1.3, x = 960, y = 1190;
+    return { cam, bg: T.beach(f, { time: 'dusk', sand: 900 }),
+      fg: `<circle cx="${n1(x - 120 * s)}" cy="${n1(y - 270 * s)}" r="${n1(150 + Math.sin(f / 4) * 10)}" fill="url(#goldGlow)"/>
+        ${G(x, y, s, thetis2({ arms: 'shh', expr: 'smirk', breathe: bob(f), blink: blink(f, [R.at('saying.', 1, 4)]) }))}` };
+  } },
+  // 43 · "Then you grow up. Fast." – three flashes: kid → teen → young man → the hero in a cloud of dust
+  { cue: 'Then you grow', draw(f, l, d) {
+    const s1 = R.at('grow', 1, -1), s2 = R.at('up.', 1, -1), s3 = R.at('Fast.', 1, -1);
+    const cam = S.camera(l, [[0, 960, 580, 1.0], [d, 960, 560, 1.06]]);
+    const who = f < s1 ? 0 : f < s2 ? 1 : f < s3 ? 2 : 3, g = 960, dust = win(f, s3, s3 + 34);
+    const fig = [() => G(960, g, 1.25, kidA({ arms: 'hips', expr: 'proud' })), () => G(960, g, 1.2, K2.kid({ who: 'achilles', age: 'teen', arms: 'hips', expr: 'proud' })),
+      () => G(960, g, 1.08, K2.achilles({ armor: false, expr: 'proud', head: {} })), () => G(960, g, 1.1, K2.achilles({ expr: 'proud', breathe: bob(f) }))][who]();
+    return { cam, bg: `${T.gagBg(f, 'heroic', '#ffe7a8', 960, 640)}<rect y="${g}" width="1920" height="200" fill="#5a2a1c" opacity="0.55"/>`,
+      fg: `${who === 3 ? G(960, g, 1, PR.dustCloud({ t: dust * 0.7, w: 760, r: 80, col: '#f0d8b0', seed: 3 })) : ''}${shadow(960, g, 110, 0.25)}${fig}
+        ${who === 3 ? G(960, g + 30, 1, PR.dustCloud({ t: dust, w: 900, r: 60, col: '#f6e4c4', seed: 9 })) : ''}`,
+      over: `${flash(f, R.SH[42].a, 3)}${flash(f, s1)}${flash(f, s2)}${flash(f, s3, 5)}` };
+  } },
+  // 44 · "Blond, proud," – the pose: hair flip on BLOND, chest out on PROUD
+  { cue: 'Blond,', draw(f, l, d) {
+    const b1 = R.at('Blond,'), b2 = R.at('proud,');
+    const cam = S.camera(l, [[0, 960, 500, 1.12], [d, 960, 485, 1.17]]);
+    const flip = f >= b1 && f < b1 + 12 ? Math.sin((f - b1) / 12 * Math.PI) * -9 : 0, chest = easeOut(win(f, b2, b2 + 6));
+    const hair = win(f, b1 + 2, b1 + 16);
+    return { cam, bg: T.meadow(f, { time: 'gold' }),
+      fg: `${shadow(960, 990, 130, 0.22)}<g transform="translate(960 990) scale(${n1(1.06 + chest * 0.04)} ${n1(1.06 + chest * 0.06)})">${K2.achilles({ head: {}, expr: f >= b2 ? 'proud' : 'smug', headTilt: flip, breathe: bob(f), blink: blink(f, [b2 + 16]) })}</g>
+        ${hair > 0 && hair < 1 ? star4(1000, 990 - 520 * 1.06, 40 * Math.sin(hair * Math.PI), '#fffbe6', 1) + star4(905, 990 - 560 * 1.06, 24 * Math.sin(hair * Math.PI), '#fffbe6', 0.9) : ''}`,
+      hud: `${popLabel(f, b1, 480, 300, 100, 'BLOND', { rot: -5, fill: '#f6d35b' })}${popLabel(f, b2, 1440, 360, 100, 'PROUD', { rot: 5 })}` };
+  } },
+  // 45 · "the fastest man in Greece." – zip: he crosses the whole frame, dust and speed lines behind him
+  { cue: 'the fastest', draw(f, l, d) {
+    const z0 = R.at('fastest', 1, -4), t = win(f, z0, z0 + 9), x = lerp(-300, 2300, t);
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 960, 550, 1.04]]);
+    let trail = '';
+    for (let k = 0; k < 8; k++) { const px = -200 + k * 300; if (px > x) continue; const tt = clamp((f - z0 - (px + 300) / 2600 * 9) / 40); trail += G(px, 960, 1, PR.dustCloud({ t: 0.15 + tt * 0.85, w: 300, r: 50, col: '#eadcbf', seed: k })); }
+    return { cam, bg: T.meadow(f),
+      fg: `${t <= 0 ? `${shadow(560, 960, 110, 0.2)}${G(560, 960, 1, K2.achilles({ head: {}, expr: 'smirk', breathe: bob(f) }))}` : ''}${trail}
+        ${t > 0 && t < 1 ? `${G(x - 620, 640, 1, PR.speedLines({ w: 560, h: 260, f, n: 7 }))}${G(x, 960, 1, K2.achilles({ pose: 'run', expr: 'determined' }))}` : ''}`,
+      hud: popLabel(f, R.at('fastest'), 960, 260, 116, 'FASTEST', { rot: -4, fill: '#f6d35b' }) };
+  } },
+  // 46 · "And still screaming for attention." – a cliff at sunset: he screams at the sky, like the baby did. LOUD
+  { cue: 'And still', draw(f, l, d) {
+    const sc = R.at('screaming', 1, -3), att = R.at('attention.'), on = f >= sc, kick = f >= att && f < att + 10 ? Math.sin((f - att) * 2.2) * (1 - (f - att) / 10) * 10 : 0;
+    const cam = S.camera(l, [[0, 960, 560, 1.04], [d, 960, 520, 1.14]]).replace('translate(960 540)', `translate(${n1(960 + kick)} ${n1(540 - kick * 0.6)})`);
+    const ray = easeOut(win(f, sc, sc + 10)) * (1 + 0.6 * win(f, att, att + 6)), hx = 960, hy = 900 - 476 * 1.05;
+    let rays = '';
+    for (let i = 0; i < 18; i++) { const a0 = (i / 18) * Math.PI * 2 + l * 0.01, a1 = a0 + Math.PI / 18; rays += `<path d="M${hx},${n1(hy)} L${n1(hx + Math.cos(a0) * 2400)},${n1(hy + Math.sin(a0) * 2400)} L${n1(hx + Math.cos(a1) * 2400)},${n1(hy + Math.sin(a1) * 2400)} Z" fill="#fff6d8" opacity="${(0.2 * Math.min(1, ray)).toFixed(2)}"/>`; }
+    const rings = on ? [0, 1, 2].map(k => { const t = ((f - sc) / 22 + k / 3) % 1; return G(hx, hy, 1, PR.shockRing({ t, r0: 90, r1: 700, w: 18 })); }).join('') : '';
+    const cliff = `<path d="M-50,1100 L-50,900 Q300,840 620,880 Q900,900 1200,860 Q1500,840 1980,920 L1980,1100 Z" fill="#3a2a26" ${ink(5)}/><path d="M-50,920 Q300,860 620,900" fill="none" stroke="#5a4136" stroke-width="10" stroke-linecap="round"/>`;
+    return { cam, bg: `${T.sky('dusk')}${T.sun(1480, 650, 150)}${T.seaBand(650, 430, '#27384a', '#f2a65e', f, 3)}${ray > 0 ? `<circle cx="${hx}" cy="${n1(hy)}" r="${n1(700 * Math.min(1, ray))}" fill="url(#goldGlow)"/>${rays}` : ''}${cliff}${motes(f, 24, { col: '#ffe2b0', seed: 7 })}`,
+      fg: `${shadow(960, 892, 150, 0.25)}${G(960, 896, 1.05, on ? K2.achilles({ pose: 'scream', arms: 'out', shieldOn: false, spear: false, expr: 'scream' }) : K2.achilles({ head: {}, expr: 'proud', breathe: bob(f), headTilt: -4 * win(l, 6, sc - R.SH[45].a) }))}
+        ${on ? shakeLines(hx, hy, 130, f) + rings : ''}`,
+      hud: popLabel(f, sc + 6, 1430, 470, 130, 'LOUD', { rot: 8, fill: '#f6d35b' }),
+      over: flash(f, att, 4, '#fff6d8') };
+  } },
+] });
+</script>
+</body>
+</html>

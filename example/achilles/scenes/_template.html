@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – template for a chapter scene</title>
+<style>html, body { margin: 0; padding: 0; background: #000; overflow: hidden; } #stage { width: 1920px; height: 1080px; } svg { display: block; }</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/cast2.js"></script>
+<script src="../lib/props.js"></script>
+<script src="../lib/scene.js"></script>
+<script src="../lib/sets.js"></script>
+<script src="../lib/runner.js"></script>
+<script>
+// Copy this file to scenes/chapterN.html. The shot list is in EPISODE.md; the text must be EXACTLY the voice text file.
+const K = window.CAST, K2 = window.CAST2, PR = window.PROPS, S = window.SCENE, T = window.SETS;
+const { C, INK } = K;
+const { ease, easeOut, win, lerp, popLabel, arrow, strike, stamp, motes, blink } = S;
+const TEXT = `Then the news reaches you. …`;          // = voice/7_ch6.txt, word for word
+const bob = (f, k = 0) => Math.sin((f + k * 13) / 14) * 3.5;
+
+const R = RUN({ TEXT, OFF: 1.6, card: ['VI', 'Three Screams'], tail: 1.3, SHOTS: [
+  // 1 · "Then the news reaches you." – the first shot starts after the card
+  { cue: 'Then the news', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.0], [d, 980, 540, 1.08]]);   // always a move: no shot stands still
+    return { cam, bg: T.camp(f, { time: 'dusk' }), fg: `…characters…` };
+  } },
+  // 2 · …
+] });
+</script>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – chapter IV "The Lyre"</title>
+<style>html, body { margin: 0; padding: 0; background: #000; overflow: hidden; } #stage { width: 1920px; height: 1080px; } svg { display: block; }</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/cast2.js"></script>
+<script src="../lib/props.js"></script>
+<script src="../lib/scene.js"></script>
+<script src="../lib/sets.js"></script>
+<script src="../lib/runner.js"></script>
+<script>
+// Chapter IV "The Lyre" (EPISODE.md § 6) – the last chapter with jokes: the useless lyre pays off, the empty place in the songs,
+// Odysseus' offer (every item pops on its word), the wobbling cauldron tower, the NO stamp; then a quiet night at the ships.
+const K = window.CAST, K2 = window.CAST2, PR = window.PROPS, S = window.SCENE, T = window.SETS;
+const { C, INK } = K;
+const { ease, easeOut, win, lerp, popLabel, arrow, stamp, motes } = S;
+const TEXT = `Without you, the Greeks lose. Badly. They're pushed all the way back to their ships. And you? You sit in your tent and play the lyre. The useless one. You sing about the famous heroes of old. You're not in the songs yet. Then Odysseus shows up. Again. With an offer. Gold, horses, seven cities, a princess, and twenty cauldrons. Just in case. Last time, Odysseus tricked you into this war. This time, you say no. Tomorrow, you sail home.`;
+
+// ---------- helpers ----------
+const n = v => Math.round(v * 10) / 10;
+const bob = (f, k = 0) => Math.sin((f + k * 13) / 14) * 3.5;
+// a blink every ~2.8 s inside a shot (l = frame in the shot; k keeps two characters from blinking together)
+const bl = (l, k = 0, per = 84) => { const d = (((l - 20 - k * 29) % per) + per) % per; return d <= 6 ? (d <= 3 ? d / 3 : (6 - d) / 3) : 0; };
+const put = (x, y, s, svg, rot = 0) => `<g transform="translate(${n(x)} ${n(y)})${rot ? ` rotate(${n(rot)})` : ''} scale(${s})">${svg}</g>`;
+// stage point -> screen point for a camera string from S.camera (labels live in screen space, so they never leave the frame)
+function scr(cam, x, y) { const m = cam.match(/scale\(([-\d.]+)\) translate\(([-\d.]+) ([-\d.]+)\)/); const z = +m[1]; return [960 + (x + +m[2]) * z, 540 + (y + +m[3]) * z]; }
+function label(f, f0, x, y, size, str, o = {}) {
+  const hw = Math.max(str.length * size * 0.36 + 14, o.sub ? o.sub.length * size * 0.13 : 0);
+  return popLabel(f, f0, Math.min(1880 - hw, Math.max(40 + hw, x)), Math.min(1010 - (o.sub ? size * 0.75 : 0), Math.max(50 + size * 0.75, y)), size, str, o);
+}
+function arrowTo(f, f0, x1, y1, x2, y2, bend = 0.22) {
+  const dx = x2 - x1, dy = y2 - y1, cx = (x1 + x2) / 2 - dy * bend, cy = (y1 + y2) / 2 + dx * bend;
+  const a = Math.atan2(y2 - cy, x2 - cx), h = 28;
+  const head = `M${n(x2 - Math.cos(a - 0.55) * h)},${n(y2 - Math.sin(a - 0.55) * h)} L${n(x2)},${n(y2)} L${n(x2 - Math.cos(a + 0.55) * h)},${n(y2 - Math.sin(a + 0.55) * h)}`;
+  return arrow(f, f0, `M${n(x1)},${n(y1)} Q${n(cx)},${n(cy)} ${n(x2)},${n(y2)}`, Math.hypot(dx, dy) * 1.15, head);
+}
+// floating music notes (the lyre, the song)
+function notes(f, x, y, k = 3, o = {}) {
+  let s = '';
+  for (let i = 0; i < k; i++) {
+    const t = ((f / (o.per || 46)) + i / k) % 1;
+    s += `<text x="${n(x + t * (o.dx ?? 140) + Math.sin(t * 6 + i) * 22)}" y="${n(y - t * (o.dy ?? 230))}" font-family="Segoe UI Symbol, Segoe UI, sans-serif" font-size="${o.size || 56}" fill="${o.col || '#f6d35b'}" stroke="${INK}" stroke-width="4" paint-order="stroke" opacity="${n(Math.sin(Math.PI * t) * (o.op ?? 1))}">${i % 2 ? '♫' : '♪'}</text>`;
+  }
+  return s;
+}
+// the rolled offer scroll in Odysseus' hand (drawn over his gift box, in his own coordinates)
+const rolled = `<g transform="translate(66 -268) rotate(-14)"><rect x="-84" y="-24" width="168" height="48" rx="12" fill="#f1e2bf" stroke="${INK}" stroke-width="4"/>
+  <path d="M-60,-24 L-60,24 M60,-24 L60,24" stroke="#d9c49a" stroke-width="4"/><ellipse cx="-84" cy="0" rx="11" ry="24" fill="#c9a46c" stroke="${INK}" stroke-width="4"/><ellipse cx="84" cy="0" rx="11" ry="24" fill="#e7d3a6" stroke="${INK}" stroke-width="4"/>
+  <rect x="-8" y="-25" width="16" height="50" fill="#b8352c" stroke="${INK}" stroke-width="3"/></g>`;
+const OFFER = ['Gold', 'Horses', 'Seven cities', 'A princess', 'Twenty cauldrons'];
+// a Greek soldier who ran too close to something: half a helmet left, the other half of his hair sticks out
+function halfHelmet(P) {
+  const r = 72, edge = 'L8,-160 L-6,-96 L14,-52 L-4,-8 L12,34 L2,80';
+  return `<defs><clipPath id="hhL"><path d="M-220,-160 ${edge} L-220,80 Z"/></clipPath><clipPath id="hhR"><path d="M220,-160 ${edge} L220,80 Z"/></clipPath></defs>
+    <g clip-path="url(#hhR)">${K.tousled(r, { tufts: 6, depth: 0.28, col: '#2e2420', shade: '#1b1512' })}</g><g clip-path="url(#hhL)">${K.helmet(r, P)}</g>
+    <path d="M8,-150 L-6,-96 L14,-52 L-4,-8 L12,34" fill="none" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>`;
+}
+// a tent at night seen from outside (the tent of Achilles)
+function nightSand(f, glowL = true) {
+  return `${T.sky('moonsky')}${T.stars(f, 36, 420, 120)}${T.moon(1520, 190, 54)}
+    ${glowL ? `<circle cx="160" cy="620" r="520" fill="#ff6a3a" opacity="0.2" filter="url(#soft)"/>${T.smoke(f, 240, 640, 1.1, '#3a2a34', 2, 0.45)}${T.smoke(f, 520, 650, 0.8, '#3a2a34', 5, 0.35)}` : ''}
+    ${T.seaBand(540, 140, '#1b2a44', '#8fa6c9', f, 5)}<rect y="672" width="1920" height="520" fill="#33293a"/><path d="M-50,676 Q960,662 1980,680" fill="none" stroke="#c9b8d6" stroke-width="5" opacity="0.18"/>`;
+}
+
+// inside the tent of Achilles at night, lit warm by its lamp (the canvas glows; with door: the night outside the flap)
+function lampTent(f, o = {}) {
+  const fl = 1 + Math.sin(f / 3.1) * 0.03;
+  let s = `${T.tentInside(f, { night: false })}<rect x="-200" y="-200" width="2320" height="1480" fill="#2a1408" opacity="0.28"/>
+    <circle cx="720" cy="300" r="${n(900 * fl)}" fill="#ffc870" opacity="0.2" filter="url(#soft)"/>`;
+  if (o.door) s += `<path d="M1500,900 L1560,160 L1760,170 L1800,900 Z" fill="#141a34" stroke="${INK}" stroke-width="6"/>
+    ${T.stars(f, 10, 600, 200).replace(/cx="(\d+)"/g, (m, v) => `cx="${1580 + (+v % 170)}"`).replace(/cy="(\d+)"/g, (m, v) => `cy="${220 + (+v % 480)}"`)}
+    <path d="M1500,900 L1560,160 Q1520,500 1420,900 Z" fill="#8a6a48" stroke="${INK}" stroke-width="5"/>`;
+  return s + `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#hallshade)"/>`;
+}
+
+const DEFS4 = `<radialGradient id="warmDark" cx="0.4" cy="0.6" r="0.78"><stop offset="0" stop-color="#8a5422"/><stop offset="0.5" stop-color="#3e2414"/><stop offset="1" stop-color="#140a06"/></radialGradient>
+  <linearGradient id="vaseShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#140a06" stop-opacity="0.75"/><stop offset="0.22" stop-color="#140a06" stop-opacity="0"/><stop offset="0.78" stop-color="#140a06" stop-opacity="0"/><stop offset="1" stop-color="#140a06" stop-opacity="0.75"/></linearGradient>
+  <linearGradient id="vaseBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8e4420"/><stop offset="0.5" stop-color="#c8662e"/><stop offset="1" stop-color="#7a3a1a"/></linearGradient>
+  <linearGradient id="memSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8cc6e6"/><stop offset="1" stop-color="#e2f2ef"/></linearGradient>
+  <clipPath id="memClip"><ellipse cx="0" cy="0" rx="250" ry="168"/></clipPath>
+  <clipPath id="pic4"><rect x="-440" y="-270" width="880" height="540"/></clipPath>
+  <radialGradient id="slotSpot" cx="0.5" cy="0.46" r="0.5"><stop offset="0.2" stop-color="#0b0710" stop-opacity="0"/><stop offset="0.55" stop-color="#0b0710" stop-opacity="0.88"/><stop offset="1" stop-color="#0b0710" stop-opacity="0.95"/></radialGradient>`;
+
+// the black-figure vase band (the old songs) – a huge vase seen close, the frieze across its belly
+function vaseWall(f, frieze) {
+  return `${T.sky('canvasNight')}<rect x="-200" y="120" width="2320" height="860" fill="url(#vaseBody)"/>
+    <rect x="-200" y="120" width="2320" height="70" fill="${INK}"/><rect x="-200" y="910" width="2320" height="70" fill="${INK}"/>
+    ${Array.from({ length: 40 }, (_, i) => `<path d="M${-200 + i * 60},190 q30,46 60,0" fill="#7a3a1a" stroke="${INK}" stroke-width="3"/>`).join('')}
+    ${Array.from({ length: 40 }, (_, i) => `<path d="M${-200 + i * 60},910 q30,-40 60,0" fill="#7a3a1a" stroke="${INK}" stroke-width="3"/>`).join('')}
+    ${frieze}<rect x="-200" y="-200" width="2320" height="1480" fill="#8a7466" opacity="0.2"/><rect x="-200" y="-200" width="2320" height="1480" fill="url(#vaseShade)"/>
+    <circle cx="560" cy="300" r="520" fill="#ffcf8a" opacity="${n(0.12 + Math.sin(f / 5) * 0.015)}" filter="url(#soft)"/>${motes(f, 16, { col: '#ffcf8a', seed: 17 })}`;
+}
+
+const R = RUN({ TEXT, OFF: 1.6, card: ['IV', 'The Lyre'], tail: 1.3, defs: () => DEFS4, SHOTS: [
+  // 1 · "Without you, the Greeks lose. Badly." – the battle goes wrong; on "Badly." a soldier runs past with half a helmet
+  { cue: 'Without you,', draw(f, l, d) {
+    const badly = R.at('Badly.', 1, -5);
+    const cam = S.camera(l, [[0, 1010, 560, 1.08], [d, 955, 575, 1.13]]);
+    const shieldOnSand = (x, y, k, r) => put(x, y, 1, `<g transform="scale(1 0.42)">${K2.shield2(0, 0, 58, [{ emblem: 'waves' }, { emblem: 'star', metal: C.bronze, metalS: C.bronzeS, rim: '#55622b', mark: '#55622b' }, { emblem: 'eye', metal: C.bronze, metalS: C.bronzeS, rim: '#2c537a', mark: '#2c537a' }][k])}</g>`, r);
+    let trojans = '';
+    for (let i = 0; i < 7; i++) trojans += put(1080 + i * 120 - l * 0.7, 690 + (i % 2) * 14, 0.28, K2.soldier({ side: 'trojan', k: i % 3, pose: 'walk', expr: 'stern' }));
+    let greeks = '';
+    for (const [x0, k, del, sc, y, v] of [[1480, 0, 0, 0.58, 935, 8], [1880, 2, 4, 0.5, 880, 11], [1240, 1, 14, 0.62, 985, 6.5]]) {
+      const x = x0 - Math.max(0, l - del) * v, hop = -Math.abs(Math.sin((l + k * 5) / 3)) * 14;
+      greeks += `${T.shadow(x, y, 70 * sc / 0.5)}${put(x, y + hop, sc, K2.soldier({ side: 'greek', k, pose: 'run', dir: -1, arms: 'pump', spear: false, shieldOn: false, expr: 'shocked' }))}
+        ${PR.dustCloud ? put(x + 90 * sc / 0.5, y, 0.6, PR.dustCloud({ t: ((l + k * 7) % 18) / 18, w: 160, r: 30, col: '#8a5a48' })) : ''}`;
+    }
+    // "Badly.": the half-helmet runner zips through the foreground, right to left
+    let run = '';
+    if (f >= badly) {
+      const x = 2300 - (f - badly) * 46, hop = -Math.abs(Math.sin((f - badly) / 2.6)) * 18;
+      const P = { tunic: '#6f7f3a', tunicS: '#55622b', crest: '#e2b04e', emblem: 'star', rim: '#55622b', mark: '#55622b', metal: C.bronze, metalS: C.bronzeS, metalL: C.bronzeL, hair: '#2e2420', hairS: '#1b1512' };
+      run = `${T.shadow(x, 1120, 150)}${put(x, 1120 + hop, 1.3, K2.man({ pose: 'run', dir: -1, arms: 'pump', armor: true, expr: 'shocked', head: { front: halfHelmet(P) }, P }))}
+        <g opacity="0.75">${put(x + 220, 520, 1, PR.speedLines({ w: 480, h: 480, n: 9, f, col: '#ffe3c0' }))}</g>`;
+    }
+    return { cam, bg: `${T.battlefield(f, { time: 'day' })}<g filter="url(#sil)">${trojans}</g>`,
+      fg: `${shieldOnSand(640, 1010, 0, -10)}${shieldOnSand(1180, 1040, 1, 14)}${shieldOnSand(330, 960, 2, 6)}${greeks}${run}` };
+  } },
+  // 2 · "They're pushed all the way back to their ships." – night: Trojan torches at the trench, the Greek ships behind
+  { cue: "They're pushed", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1040, 600, 1.1], [d, 965, 565, 1.16]]);
+    let stakes = '';
+    for (let x = -60; x < 1980; x += 64) stakes += `<path d="M${x},905 L${x + 24},800 L${x + 48},905 Z" fill="#3a2622" stroke="${INK}" stroke-width="4"/>`;
+    let troj = '', torches = '';
+    for (let i = 0; i < 7; i++) {
+      const x = 260 + i * 250 + S.rnd(i + 5) * 60 - l * 1.4, y = 1190 + (i % 2) * 40, sc = 0.78 + S.rnd(i) * 0.1, sw = Math.sin((f + i * 11) / 9) * 6;
+      troj += put(x, y, sc, K2.soldier({ side: 'trojan', k: i % 3, arms: 'cheer', spear: false, shieldOn: false, helmet: true }));
+      torches += put(x + 154 * sc, y - 546 * sc + 30, sc, PR.torch({ f: f + i * 7, s: 0.95, angle: 8 + sw, seed: i }));
+    }
+    return { cam, bg: `${T.camp(f, { time: 'dusk' })}<rect x="-200" y="-200" width="2320" height="1480" fill="#1a0c18" opacity="0.12"/>
+      <circle cx="960" cy="1000" r="760" fill="#ff7a2a" opacity="0.14" filter="url(#soft)"/>${stakes}<rect y="900" width="1920" height="300" fill="#1e1416"/>`,
+      fg: `<g filter="url(#sil)">${troj}</g>${torches}${motes(f, 24, { col: '#ffb070', seed: 29 })}` };
+  } },
+  // 3 · "And you?" – far from the fight, one tent glows warm and calm; a note floats out of the door
+  { cue: 'And you?', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.1], [d, 960, 620, 1.16]]);
+    return { cam, bg: nightSand(f),
+      fg: `${T.shadow(960, 930, 380, 0.35)}${put(960, 930, 1.28, PR.tent({ lit: true, open: 0.95 }))}
+        <circle cx="960" cy="860" r="260" fill="#ffcf8a" opacity="0.16" filter="url(#soft)"/>${notes(f, 930, 720, 2, { per: 40, dx: 90, dy: 200, size: 50 })}` };
+  } },
+  // 4 · "You sit in your tent and play the lyre." – lamp light, eyes closed, singing; Patroclus listens, chin in hand
+  { cue: 'You sit', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 950, 650, 1.3], [d, 975, 630, 1.34]]);
+    const nod = Math.sin(l / 7) * 3;
+    return { cam, bg: lampTent(f),
+      fg: `${T.shadow(600, 990, 130, 0.3)}${put(600, 990, 1, PR.stool())}${put(600, 990, 1, K2.achilles({ armor: false, pose: 'sit', arms: 'lyre', expr: 'happy', headTilt: nod, breathe: bob(f) }))}
+        ${T.shadow(1320, 990, 130, 0.3)}${put(1320, 990, 1, PR.stool({ cloth: '#2f7f88', clothS: '#225f67' }))}${put(1320, 990, 1, K2.patroclus({ pose: 'sit', arms: 'chin', expr: 'smile', look: -1, blink: bl(l, 1), breathe: bob(f, 3) }))}
+        ${notes(f, 640, 720, 3, { per: 38, dx: 260, dy: 320 })}` };
+  } },
+  // 5 · "The useless one." – the lyre close, in a gold shimmer; a thought bubble pops: the kid who called it USELESS
+  { cue: 'The useless', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 600, 1.08], [d, 920, 580, 1.14]]);
+    const pl = Math.floor(l / 3) % 7, hy = 540 + Math.sin(l / 2.2) * 40;
+    const p = S.popScale(l - 3);
+    const mem = p <= 0 ? '' : `<g transform="translate(1390 330) scale(${n(p)})" filter="url(#drop)">${PR.thoughtBubble({ w: 640, h: 470, tail: [-340, 330] })}
+      <g clip-path="url(#memClip)"><rect x="-260" y="-180" width="520" height="360" fill="url(#memSky)"/><path d="M-270,90 Q0,40 270,100 L270,200 L-270,200 Z" fill="#8fb05a" stroke="${INK}" stroke-width="4"/>
+      ${put(-120, 178, 0.74, K2.kid({ arms: 'lyre', expr: 'disgust', blink: bl(l, 2) }))}</g>
+      ${S.word(96, -36, 64, 'USELESS', { fill: '#f6d35b', extra: 'transform="rotate(-10 96 -56)"' })}</g>`;
+    return { cam, bg: `${T.sky('warmDark')}${T.rays(f, 760, 700, 18, '#ffd98a', 0.07, 0.002)}<circle cx="760" cy="640" r="${n(460 + Math.sin(f / 6) * 18)}" fill="#ffd98a" opacity="0.34" filter="url(#soft)"/>${motes(f, 26, { col: '#ffe7a8', seed: 19 })}`,
+      fg: `${put(740, 820, 2.6, PR.lyre({ pluck: pl, amp: 5 }))}${K.limb(1060, 1160, 862, hy + 92, 50, C.skin, C.skinS)}${K.hand(852, hy + 80, 28)}`, hud: mem };
+  } },
+  // 6 · "You sing about the famous heroes of old." – a black-figure frieze of old heroes; the song drifts across it
+  { cue: 'You sing', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 770, 540, 1.3], [d, 830, 545, 1.33]]);
+    return { cam, bg: vaseWall(f, put(960, 545, 1, PR.vasePainting({ w: 2400, h: 560, slots: 6, kinds: ['spear', 'lion', 'winged', 'archer', 'lion', 'spear'] }))),
+      fg: notes(f, 300, 760, 4, { per: 52, dx: 900, dy: 300, size: 62, op: 0.9 }) };
+  } },
+  // 7 · "You're not in the songs yet." – one place in the frieze is still empty: YOU (not yet)
+  { cue: "You're not", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 520, 1.12], [d, 960, 525, 1.2]]);
+    const lab = R.at('not', 1, 2);
+    const [tx, ty] = scr(cam, 1000, 470);
+    return { cam, bg: vaseWall(f, put(960, 545, 1, PR.vasePainting({ w: 2000, h: 600, slots: 5, empty: 2, kinds: ['lion', 'winged', 'spear', 'archer', 'spear'] }))),
+      fg: `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#slotSpot)"/><path d="M820,-40 L1100,-40 L1180,900 L740,900 Z" fill="#ffe7a8" opacity="${n(0.07 + Math.sin(f / 7) * 0.015)}"/>`,
+      hud: `${label(f, lab, 1420, 250, 96, 'YOU', { fill: '#f6d35b', sub: '(not yet)', rot: 4 })}${arrowTo(f, lab + 4, 1330, 330, tx + 40, ty - 30, -0.25)}` };
+  } },
+  // 8 · "Then Odysseus shows up." – the tent flap: Odysseus steps in with a scroll, smirking
+  { cue: 'Then Odysseus', draw(f, l, d) {
+    const up = R.at('up.', 1, 0);
+    const cam = S.camera(l, [[0, 1000, 560, 1.08], [d, 1050, 545, 1.12]]);
+    const x = lerp(1960, 1655, easeOut(win(l, 2, 16)));
+    return { cam, bg: `${lampTent(f, { door: true })}<path d="M1520,900 L1562,300 L1755,306 L1790,900 Z" fill="#ff6a3a" opacity="0.12"/>`,
+      fg: `${T.shadow(x, 905, 90, 0.3)}${put(x, 905, 0.9, K.odysseus({ expr: 'smirk', look: -0.8, breathe: bob(f), blink: bl(l, 1) }) + rolled)}
+        <path d="M1500,900 L1560,160 Q1520,500 1420,900 Z" fill="#4a3330" stroke="${INK}" stroke-width="5"/>
+        ${T.shadow(520, 1010, 140, 0.3)}${put(520, 1010, 1.12, PR.stool())}${put(520, 1010, 1.12, K2.achilles({ armor: false, pose: 'sit', arms: 'lyre', expr: f >= up ? 'tired' : 'calm', look: 1, blink: bl(l), breathe: bob(f) }))}` };
+  } },
+  // 9 · "Again." – his face, deadpan, on a violet gag backdrop
+  { cue: 'Again.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.06], [d, 960, 540, 1.1]]);
+    return { cam, bg: T.gagBg(f, 'violet'),
+      fg: put(900, 1320, 1.6, K2.achilles({ armor: false, arms: 'down', expr: 'tired', look: 0.7, breathe: bob(f) })),
+      hud: label(f, R.at('Again.', 1, 2), 1400, 330, 72, 'AGAIN.', { rot: -5 }) };
+  } },
+  // 10 · "With an offer." – Odysseus close; the scroll unrolls towards you: THE OFFER
+  { cue: 'With an', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.06], [d, 980, 550, 1.1]]);
+    const u = easeOut(win(l, 2, 15));
+    const sx = lerp(820, 1270, u), sy = lerp(840, 530, u), ss = lerp(0.25, 1, u);
+    return { cam, bg: `${lampTent(f)}<rect x="-200" y="-200" width="2320" height="1480" fill="#1a0e0a" opacity="0.12"/><circle cx="1200" cy="520" r="560" fill="#ffcf8a" opacity="0.12" filter="url(#soft)"/>`,
+      fg: `${put(640, 1260, 1.45, K.odysseus({ expr: 'smirk', look: 0.8, breathe: bob(f), blink: bl(l) }) + (u < 0.05 ? rolled : ''))}
+        ${put(sx, sy, n(ss), PR.scrollDoc({ w: 460, h: 640, unroll: u, title: 'THE OFFER', lines: [] }), lerp(-20, -3, u))}` };
+  } },
+  // 11 · "Gold, horses, seven cities, a princess," – the list on gold rays, every item pops on its word
+  { cue: 'Gold,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 980, 540, 1.06], [d, 1010, 550, 1.1]]);
+    const w = ['Gold,', 'horses,', 'seven', 'princess,'].map(p => R.at(p, 1, 0)), cEnd = R.at('cities,', 1, 4);
+    const item = (f0, x, y, s, svg) => { const p = S.popScale(f - f0); return p > 0 ? put(x, y, n(p * s), svg) : ''; };
+    let cities = '';
+    for (let i = 0; i < 7; i++) cities += item(Math.round(lerp(w[2], cEnd, i / 6)), 880 + i * 145, 770, 0.62, PR.cityIcon({}));
+    const done = w.filter(x => f >= x).length, rv = done ? done - 1 + Math.min(1, (f - w[done - 1]) / 8) : 0;
+    return { cam, bg: T.gagBg(f, 'gold', '#fff1c2', 1250, 560),
+      fg: `${put(470, 560, 1, PR.scrollDoc({ w: 500, h: 760, title: 'THE OFFER', lines: OFFER, reveal: rv, size: 42 }), -2)}
+        ${item(w[0], 1060, 520, 0.95, PR.goldBars({ n: 3 }))}${item(w[1], 1520, 540, 0.44, PR.horse({ gait: 'stand', blanket: true }))}${cities}${item(w[3], 1310, 950, 1.25, PR.tiara({}))}` };
+  } },
+  // 12 · "and twenty cauldrons. Just in case." – a tower of twenty cauldrons stacks up … and wobbles
+  { cue: 'and twenty', draw(f, l, d) {
+    const t0 = R.at('twenty', 1, 0), js = R.at('Just', 1, 0);
+    const nb = Math.max(1, Math.min(20, Math.floor((f - t0) / 2) + 1));
+    const wob = f < js ? Math.sin(f / 5) * 0.8 : Math.sin((f - js) / 3.4) * 11 * Math.min(1, (f - js) / 9);
+    const cam = S.camera(l, [[0, 1120, 640, 1.25], [36, 1120, 566, 1.25], [d, 1100, 560, 1.28]]);
+    return { cam, bg: lampTent(f),
+      fg: `${T.shadow(1200, 1040, 140, 0.3)}${put(1200, 1040, 0.86, PR.cauldronTower({ n: nb, wobble: wob }))}
+        ${T.shadow(560, 1010, 130, 0.3)}${put(560, 1010, 1, PR.stool())}${put(560, 1010, 1, K2.achilles({ armor: false, pose: 'sit', arms: 'lyre', expr: 'tired', look: 0.8, blink: bl(l), breathe: bob(f) }))}
+        ${T.shadow(1680, 1000, 90, 0.3)}${put(1680, 1000, 0.95, K.odysseus({ expr: 'smirk', look: -0.8, breathe: bob(f, 2), blink: bl(l, 1) }))}` };
+  } },
+  // 13 · "Last time, Odysseus tricked you into this war." – a sepia picture: Pyrrha with the spear (chapter I)
+  { cue: 'Last time,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.06], [d, 960, 520, 1.1]]);
+    const pin = easeOut(win(l, 0, 9));
+    const pic = `<g transform="translate(960 420) rotate(${n(-3 + 1.5 * pin)}) scale(${n(0.9 + 0.1 * pin)})" opacity="${n(pin)}" filter="url(#drop)">
+      <rect x="-470" y="-300" width="940" height="600" rx="10" fill="#6b4426" stroke="${INK}" stroke-width="8"/><rect x="-456" y="-286" width="912" height="572" rx="6" fill="none" stroke="#c9a46c" stroke-width="5"/>
+      <g clip-path="url(#pic4)"><g filter="url(#sepiaF)"><rect x="-440" y="-270" width="880" height="540" fill="url(#heroic)"/>${T.rays(f, 0, 40, 20, '#ffe7a8', 0.2)}
+      ${put(0, 262, 0.7, K.teenPyrrha({ arms: 'armed', expr: 'angry', breathe: bob(f) }))}</g></g>
+      <rect x="-440" y="-270" width="880" height="540" fill="none" stroke="#3a2416" stroke-width="6"/></g>`;
+    return { cam, bg: `${lampTent(f)}<rect x="-200" y="-200" width="2320" height="1480" fill="#140a08" opacity="0.3"/>`,
+      fg: `${pic}${put(1600, 1170, 1.15, K.odysseus({ expr: 'smirk', look: -0.7, breathe: bob(f), blink: bl(l, 1) }))}
+        ${put(340, 1240, 1.25, K2.achilles({ armor: false, arms: 'down', expr: 'grumpy', look: 1, blink: bl(l), breathe: bob(f, 2) }))}` };
+  } },
+  // 14 · "This time, you say no." – the stamp comes down on the offer: NO
+  { cue: 'This time,', draw(f, l, d) {
+    const hit = R.at('no.', 1, -1), s0 = f - l;
+    const y = f < hit - 6 ? -300 - 90 * ease(win(f, s0, hit - 6)) : f < hit ? lerp(-390, 0, Math.pow(win(f, hit - 6, hit), 2)) : f < hit + 4 ? 0 : -330 * easeOut(win(f, hit + 4, hit + 15));
+    const sh = f >= hit && f < hit + 6 ? (hit + 6 - f) * 3 : 0;
+    const cam = `translate(${n(Math.sin(f * 2.7) * sh)} ${n(Math.cos(f * 3.1) * sh)}) ` + S.camera(l, [[0, 960, 560, 1.08], [d, 960, 540, 1.14]]);
+    const tool = `<g transform="translate(985 ${n(560 + y)})">${cel4(`<rect x="-160" y="-64" width="320" height="64" rx="10" />`, '#a8743f', '#7a5230')}<rect x="-150" y="-10" width="300" height="12" fill="#b8352c" stroke="${INK}" stroke-width="3"/>
+      ${cel4(`<path d="M-34,-64 L-24,-210 Q0,-236 24,-210 L34,-64 Z"/>`, '#c08a52', '#94673a')}<circle cx="0" cy="-232" r="40" fill="#c08a52" stroke="${INK}" stroke-width="5"/></g>
+      ${K.limb(1500, -260, 1010, 330 + y, 46, C.skin, C.skinS)}${K.hand(1000, 336 + y, 30)}`;
+    return { cam, bg: `${T.sky('wood')}${Array.from({ length: 9 }, (_, i) => `<path d="M-100,${i * 130 + 40} Q960,${i * 130 + 20 + Math.sin(i) * 20} 2020,${i * 130 + 50}" stroke="#2e1d13" stroke-width="5" fill="none" opacity="0.7"/>`).join('')}
+      <circle cx="960" cy="520" r="640" fill="#ffcf8a" opacity="0.14" filter="url(#soft)"/>`,
+      fg: `${put(960, 560, 1, PR.scrollDoc({ w: 600, h: 820, title: 'THE OFFER', lines: OFFER, size: 44 }), -2)}
+        ${stamp(f, hit + 1, 965, 600, 140, 'NO', { rot: -12 })}${f >= hit ? put(965, 600, 1, PR.shockRing({ t: win(f, hit, hit + 14), r0: 140, r1: 760, col: '#fff4d6', w: 26 })) : ''}${tool}` };
+  } },
+  // 15 · "Tomorrow, you sail home." – night at the shore: he looks at his ships, quiet at last
+  { cue: 'Tomorrow,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1000, 560, 1.08], [d, 1110, 600, 1.16]]);
+    let near = '';
+    for (const [x, s, k] of [[380, 0.3, 0], [760, 0.26, 1], [1120, 0.22, 2]]) near += T.ship(x, 690 + k * 6, s, { sail: '#2a3550', emblem: true });
+    // a moonlit night (lighter than chapter I's fleet at night): moon path on the water, his ships close by
+    return { cam, bg: `${T.sky('moonsky')}${T.stars(f, 40, 420, 90)}${T.moon(1560, 200, 70)}<circle cx="1560" cy="200" r="420" fill="#cfd8ff" opacity="0.12" filter="url(#soft)"/>
+      ${T.seaBand(620, 460, '#2e3e66', '#a8b8e0', f, 55)}<path d="M1490,630 L1630,630 L1660,900 L1460,900 Z" fill="#e6ecff" opacity="0.12"/>${near}`,
+      fg: `<path d="M-200,1100 L-200,930 Q500,880 1100,900 Q1600,915 2120,880 L2120,1100 Z" fill="#6a5e78" stroke="${INK}" stroke-width="5"/>
+        <path d="M-200,936 Q500,886 1100,906 Q1600,921 2120,886" fill="none" stroke="#e6ecff" stroke-width="8" stroke-linecap="round" opacity="${n(0.45 + 0.15 * Math.sin(f / 11))}"/>
+        <path d="M100,1000 Q700,960 1300,990" fill="none" stroke="#8a7e98" stroke-width="10" stroke-linecap="round" opacity="0.6"/>
+        ${T.shadow(1380, 1000, 110, 0.3)}${put(1380, 1000, 0.95, K2.achilles({ armor: false, arms: 'down', expr: 'calm', look: -1, blink: bl(l), breathe: bob(f) }))}
+        <circle cx="1380" cy="600" r="260" fill="#c9d4ff" opacity="0.06" filter="url(#soft)"/>` };
+  } },
+] });
+// cel shade for a raw shape string (the stamp tool): shade fill, then the lit colour shifted up-left, then the outline
+function cel4(shape, lit, shade) { return K.cel(a => shape.replace(/\/>$/, ` ${a}/>`), lit, shade, -0.1, -0.1, 80); }
+</script>
+</body>
+</html>

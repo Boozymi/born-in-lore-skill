@@ -1,0 +1,233 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – chapter VIII "Priam"</title>
+<style>html, body { margin: 0; padding: 0; background: #000; overflow: hidden; } #stage { width: 1920px; height: 1080px; } svg { display: block; }</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/cast2.js"></script>
+<script src="../lib/props.js"></script>
+<script src="../lib/scene.js"></script>
+<script src="../lib/sets.js"></script>
+<script src="../lib/runner.js"></script>
+<script>
+// Chapter VIII "Priam" (EPISODE.md, row 10). The quietest chapter: no jokes, no gag devices, one plain name label.
+// Lamp light in the tent, a memory of old Peleus, two men crying, the cart leaving at dawn, a quiet Troy.
+const K = window.CAST, K2 = window.CAST2, PR = window.PROPS, S = window.SCENE, T = window.SETS;
+const { C, INK } = K;
+const { ease, easeOut, win, lerp, popLabel, arrow, motes, blink, clamp, rnd } = S;
+const TEXT = `For days, you drag Hector around your friend's grave. Then one night, an old man walks into your tent. Alone. Priam. Troy's king. Hector's father. He kneels, and kisses the hands that killed his son. He asks you to think of your own father. And you both cry. Him for his son. You for your dad, and for Patroclus. You give him back his son, and eleven days of peace to bury him. For eleven days, nobody dies.`;
+const bob = (f, k = 0) => Math.sin((f + k * 13) / 14) * 3.5;
+const G = (x, y, s, inner, o = {}) => `<g transform="translate(${(+x).toFixed(1)} ${(+y).toFixed(1)})${o.rot ? ` rotate(${o.rot.toFixed(2)})` : ''} scale(${s})"${o.filter ? ` filter="url(#${o.filter})"` : ''}${o.op !== undefined ? ` opacity="${(+o.op).toFixed(2)}"` : ''}>${inner}</g>`;
+const NEW = { metal: '#efc15a', metalS: '#c28c2c', metalL: '#fff0b8', crest: '#c8302a' };
+const ach = (o = {}) => K2.achilles({ armor: false, expr: 'sad', ...o });
+const priam = (o = {}) => K2.priam({ expr: 'worried', ...o });
+const ITAL = `font-family="Segoe UI, Arial, sans-serif" font-weight="700" font-style="italic"`;
+const subPop = (f, f0, x, y, size, str) => popLabel(f, f0, x, y, size, str, { font: ITAL, sw: size * 0.2 });
+
+function defs() {
+  return [
+    T.grad('lampDark', [[0, '#1c1214'], [1, '#2e1c1a']]),
+    T.grad('dawnSoft', [[0, '#7c8fb8'], [0.5, '#e6b0a0'], [0.75, '#f6d2a0'], [1, '#f8e2b8']]),
+    `<radialGradient id="lampSide" cx="0.32" cy="0.42" r="0.7"><stop offset="0" stop-color="#ffd89a" stop-opacity="0.55"/><stop offset="0.55" stop-color="#e08a3c" stop-opacity="0.18"/><stop offset="1" stop-color="#140a08" stop-opacity="0"/></radialGradient>`,
+    `<radialGradient id="faceDark" cx="0.45" cy="0.45" r="0.75"><stop offset="0.45" stop-color="#0c0606" stop-opacity="0"/><stop offset="1" stop-color="#0c0606" stop-opacity="0.75"/></radialGradient>`,
+    `<radialGradient id="memEdge" cx="0.5" cy="0.5" r="0.72"><stop offset="0.55" stop-color="#f6e6c4" stop-opacity="0"/><stop offset="1" stop-color="#f6e6c4" stop-opacity="0.85"/></radialGradient>`,
+    `<radialGradient id="memBall" cx="0.5" cy="0.5" r="0.5"><stop offset="0.6" stop-color="#fff3d6" stop-opacity="0.9"/><stop offset="1" stop-color="#fff3d6" stop-opacity="0"/></radialGradient>`,
+    `<clipPath id="memClip"><circle cx="0" cy="0" r="230"/></clipPath>`,
+  ].join('');
+}
+// a warm lamp-lit dark tent wall behind close-ups
+function lampWall(f, side = 0.32) {
+  const fl = 1 + Math.sin(f / 3.1) * 0.03 + Math.sin(f / 1.7) * 0.02;
+  return `${T.sky('canvasNight')}${[260, 640, 1280, 1660].map(x => `<path d="M${x},-40 L${x + (x < 960 ? -40 : 40)},1100" stroke="#2a1a18" stroke-width="12" opacity="0.5"/>`).join('')}
+    <circle cx="${1920 * side}" cy="380" r="${(560 * fl).toFixed(0)}" fill="url(#lamp)" opacity="0.75"/>${motes(f, 14, { col: '#ffcf8a', seed: 71 })}`;
+}
+// a cartoon hand seen from the back: palm, four fingers to +x, the thumb on top. origin = wrist.
+function bigHand(skin, skinS, old) {
+  let s = '';
+  s += K2.man ? '' : '';
+  const L = (x1, y1, x2, y2, w) => `<path d="M${x1},${y1} L${x2},${y2}" stroke="${INK}" stroke-width="${w + 8}" stroke-linecap="round"/><path d="M${x1},${y1} L${x2},${y2}" stroke="${skinS}" stroke-width="${w}" stroke-linecap="round"/><path d="M${x1 - 3},${y1 - 3} L${x2 - 3},${y2 - 3}" stroke="${skin}" stroke-width="${w * 0.7}" stroke-linecap="round"/>`;
+  for (const [y, len] of [[-36, 70], [-12, 78], [12, 74], [36, 62]]) s += L(110, y, 110 + len, y + y * 0.12, 26);
+  s += `<path d="M0,-52 Q70,-64 128,-50 Q150,-40 150,0 Q150,40 128,50 Q70,64 0,52 Z" fill="${skinS}" stroke="${INK}" stroke-width="4"/>
+    <path d="M6,-44 Q70,-56 122,-44 Q138,-30 138,0 Q100,-10 6,-6 Z" fill="${skin}"/>`;
+  s += L(40, -44, 112, -78, 30);
+  if (old) s += `<path d="M120,-30 q8,6 0,12 M120,-6 q8,6 0,12 M120,18 q8,6 0,12 M60,-20 q30,-6 50,4 M56,16 q30,-4 46,6" fill="none" stroke="${skinS}" stroke-width="4" stroke-linecap="round" opacity="0.9"/>`;
+  else s += `<path d="M118,-30 q6,5 0,10 M118,-6 q6,5 0,10 M118,18 q6,5 0,10" fill="none" stroke="${skinS}" stroke-width="3.5" stroke-linecap="round"/>`;
+  return s;
+}
+const OLD = ['#efc8a6', '#d4a382'];
+// the hands close-up: the old king's hands (purple sleeves) hold the young hands that killed his son
+function handsCloseUp(f, l, kiss) {
+  const arm = (x1, y1, x2, y2, w, col, colS) => `<path d="M${x1},${y1} L${x2},${y2}" stroke="${INK}" stroke-width="${w + 8}" stroke-linecap="round"/><path d="M${x1},${y1} L${x2},${y2}" stroke="${colS}" stroke-width="${w}" stroke-linecap="round"/><path d="M${x1 - 6},${y1 - 8} L${x2 - 6},${y2 - 8}" stroke="${col}" stroke-width="${w * 0.66}" stroke-linecap="round"/>`;
+  let s = '';
+  // the old king's forearms in purple sleeves with a gold cuff, hands palm up from the left
+  s += arm(-200, 760, 700, 640, 150, '#5b3a6c', '#3e2649') + arm(-200, 960, 720, 800, 150, '#5b3a6c', '#3e2649');
+  s += `<path d="M680,568 L708,716" stroke="${INK}" stroke-width="40" stroke-linecap="round"/><path d="M680,568 L708,716" stroke="#c9a46c" stroke-width="30" stroke-linecap="round"/>
+    <path d="M700,728 L730,876" stroke="${INK}" stroke-width="40" stroke-linecap="round"/><path d="M700,728 L730,876" stroke="#c9a46c" stroke-width="30" stroke-linecap="round"/>`;
+  s += G(760, 640, 1.2, bigHand(OLD[0], OLD[1], true), { rot: -6 }) + G(780, 800, 1.2, `<g transform="scale(1 -1)">${bigHand(OLD[0], OLD[1], true)}</g>`, { rot: 4 });
+  // the young hands from the right (no armour, a leather band at the wrist)
+  s += arm(2140, 420, 1170, 580, 128, C.skin, C.skinS) + arm(2140, 860, 1190, 740, 128, C.skin, C.skinS);
+  s += `<path d="M1172,514 L1188,648" stroke="${INK}" stroke-width="36" stroke-linecap="round"/><path d="M1172,514 L1188,648" stroke="${C.leather}" stroke-width="26" stroke-linecap="round"/>
+    <path d="M1192,676 L1204,806" stroke="${INK}" stroke-width="36" stroke-linecap="round"/><path d="M1192,676 L1204,806" stroke="${C.leather}" stroke-width="26" stroke-linecap="round"/>`;
+  s += G(1150, 586, 1.2, `<g transform="rotate(180) scale(1 -1)">${bigHand(C.skin, C.skinS)}</g>`, { rot: 8 }) + G(1170, 736, 1.2, `<g transform="rotate(180)">${bigHand(C.skin, C.skinS)}</g>`, { rot: -6 });
+  // the old thumbs closing over the young hands
+  s += arm(880, 640, 1000, 612, 34, OLD[0], OLD[1]) + arm(900, 800, 1010, 770, 34, OLD[0], OLD[1]);
+  // his bowed head comes down to the hands (eyes closed, white hair, long beard)
+  if (kiss > 0) {
+    const r = 150, bd = K2.beard(r, 'long', '#f1ede4', '#c9c2b6');
+    const hair = `<path d="M${-r},${0.1 * r} Q${-1.06 * r},${-0.5 * r} ${-0.8 * r},${-0.66 * r} L${0.8 * r},${-0.66 * r} Q${1.06 * r},${-0.5 * r} ${r},${0.1 * r} Q${0.86 * r},${-0.3 * r} ${0.6 * r},${-0.5 * r} Q0,${-0.6 * r} ${-0.6 * r},${-0.5 * r} Q${-0.86 * r},${-0.3 * r} ${-r},${0.1 * r} Z" fill="#e9e4da" stroke="${INK}" stroke-width="4"/>`;
+    const hx = lerp(820, 905, kiss), hy = lerp(-120, 330, kiss);
+    s = `${s.slice(0, 0)}` + s + G(hx, hy, 1, K2.head2(r, { expr: 'sad', blink: 1, noCheeks: true, skin: OLD[0], skinS: OLD[1], beardBack: bd.back, beard: bd.front, front: hair }), { rot: -38 + kiss * 6 });
+  }
+  return s;
+}
+// a soft round memory picture (sepia, glowing edge) at x, y with radius 230
+function memory(x, y, inner, op = 1, s = 1) {
+  return op <= 0 ? '' : `<g transform="translate(${x} ${y}) scale(${s})" opacity="${op.toFixed(2)}"><circle r="270" fill="url(#memBall)"/>
+    <g clip-path="url(#memClip)"><g filter="url(#sepiaF)"><rect x="-260" y="-260" width="520" height="520" fill="#e9cf9c"/>${inner}</g></g>
+    <circle r="230" fill="none" stroke="#fff3d6" stroke-width="10" opacity="0.8"/></g>`;
+}
+// Priam's cart: a two-wheeled wooden cart, a long white shroud with a purple cloth over it, a grey mule in front
+function cart(f, ph, o = {}) {
+  let s = G(330, 0, 0.62, PR.horse({ gait: o.still ? 'stand' : 'walk', phase: ph, coat: '#8f8478', coatS: '#71675d', coatD: '#544c45', muzzle: '#cfc4b6', mane: '#4a4038', maneS: '#2e2822', harness: true }));
+  s += `<path d="M150,-120 L300,-170" stroke="${INK}" stroke-width="16" stroke-linecap="round"/><path d="M150,-120 L300,-170" stroke="${C.wood}" stroke-width="8" stroke-linecap="round"/>`;
+  s += `<rect x="-200" y="-150" width="360" height="56" rx="8" fill="${C.woodS}" stroke="${INK}" stroke-width="5"/><path d="M-190,-130 L150,-130" stroke="${C.wood}" stroke-width="6"/>`;
+  s += `<path d="M-180,-150 Q-190,-222 -120,-232 Q20,-246 120,-228 Q170,-214 160,-150 Z" fill="#f2ecdc" stroke="${INK}" stroke-width="5"/>
+    <path d="M-120,-226 Q-110,-180 -130,-152 M-40,-238 Q-30,-190 -46,-152 M50,-236 Q60,-190 44,-152" fill="none" stroke="#d6ccb4" stroke-width="5" stroke-linecap="round"/>
+    <path d="M-60,-240 Q40,-252 110,-232 Q150,-200 120,-150 L40,-150 Q70,-200 -60,-240 Z" fill="#5b3a6c" stroke="${INK}" stroke-width="4"/><path d="M-50,-236 Q50,-246 108,-228" fill="none" stroke="#c9a46c" stroke-width="6"/>`;
+  s += `<g transform="translate(-20 -70)">${PR.wheel(70, o.spin || 0)}</g>`;
+  return s;
+}
+
+const R = RUN({ TEXT, OFF: 1.6, card: ['VIII', 'Priam'], tail: 1.8, defs, SHOTS: [
+  // 1 · "For days, you drag Hector around your friend's grave." – dawn, the mound, the chariot going round it, tired
+  { cue: 'For days,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.04], [d, 960, 640, 1.12]]);
+    const th = lerp(2.5, 0.55, l / d), x = 960 + 600 * Math.cos(th), y = 860 + 110 * Math.sin(th);
+    let dust = '';
+    for (let i = 0; i < 9; i++) { const b = th + 0.08 + i * 0.07; dust += `<circle cx="${(960 + 600 * Math.cos(b) - 60).toFixed(0)}" cy="${(860 + 110 * Math.sin(b) - 30 - i * 4).toFixed(0)}" r="${(30 + i * 7).toFixed(0)}" fill="#e8cfb0" opacity="${(0.55 - i * 0.05).toFixed(2)}"/>`; }
+    return { cam, bg: T.grave(f), fg: `${dust}${T.shadow(x + 150, y, 170, 0.25)}
+      ${G(x, y, 0.42, G(20, -128, 0.72, K2.achilles({ arms: 'hold', expr: 'tired', P: NEW, shieldOn: false, spear: false, cape: true })) + PR.chariotTeam({ phase: (l * 0.03) % 1, gait: 'walk' }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="#3a3050" opacity="0.12"/>` };
+  } },
+  // 2 · "Then one night, an old man walks into your tent." – the sleeping camp, one small figure walking between the tents
+  { cue: 'Then one night,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 620, 1.12], [d, 1020, 640, 1.18]]);
+    const x = lerp(260, 1250, l / d), wb = Math.abs(Math.sin(l / 4.5)) * -6;
+    return { cam, bg: T.camp(f, { time: 'night' }),
+      fg: `${G(1560, 960, 0.62, PR.tent({ lit: true, open: 0.9, cloth: '#7a6a5c', clothS: '#5a4c40', stripe: '#6a2a2a' }))}
+      <ellipse cx="1560" cy="960" rx="260" ry="40" fill="#ffb85c" opacity="0.18"/>
+      ${T.shadow(x, 940, 50, 0.3)}${G(x, 940 + wb, 0.36, priam({ pose: 'walk', expr: 'worried' }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="#0a0c1c" opacity="0.15"/>` };
+  } },
+  // 3 · "Alone." – inside: the old man in the dark doorway, you look up from the lamp
+  { cue: 'Alone.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1100, 560, 1.06], [d, 1140, 560, 1.12]]);
+    return { cam, bg: T.tentInside(f, { door: true }),
+      fg: `${G(1650, 905, 0.78, priam({ breathe: bob(f), blink: blink(f, [R.SH[2].a + 12]) }))}
+      <path d="M1500,900 L1560,160 L1760,170 L1800,900 Z" fill="#0b0e22" opacity="0.35"/>
+      ${G(560, 990, 1.0, PR.stool())}${G(560, 990, 1.0, ach({ pose: 'sit', expr: 'surprised', look: 1, breathe: bob(f, 2) }))}` };
+  } },
+  // 4 · "Priam. Troy's king." – his face in the lamp light: white beard, no crown
+  { cue: 'Priam.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 520, 1.55], [d, 960, 500, 1.66]]);
+    const p = R.at('Priam.'), k = R.at('king.');
+    return { cam, bg: lampWall(f, 0.3),
+      fg: `${G(960, 1240, 1.6, priam({ expr: 'sad', breathe: bob(f) * 0.6, blink: blink(f, [p + 20, k + 14]) }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#faceDark)"/>
+      ${popLabel(f, p, 1340, 360, 74, 'PRIAM')}${subPop(f, k, 1340, 412, 36, "Troy's king")}` };
+  } },
+  // 5 · "Hector's father." – your face: it lands
+  { cue: "Hector's father.", draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 500, 1.7], [d, 960, 490, 1.8]]);
+    const hit = R.at('father.', 1, -2);
+    return { cam, bg: lampWall(f, 0.7),
+      fg: `${G(960, 1130, 1.5, ach({ pose: 'sit', expr: f >= hit ? 'hurt' : 'stern', breathe: bob(f) * 0.5, blink: blink(f, [hit + 4]) }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#faceDark)"/>` };
+  } },
+  // 6 · "He kneels," – the old king goes down on his knees before you
+  { cue: 'He kneels,', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 600, 1.12], [d, 960, 620, 1.2]]);
+    const dip = easeOut(win(l, 0, 10)) * 18;
+    return { cam, bg: T.tentInside(f, {}),
+      fg: `${T.shadow(740, 970, 150, 0.3)}${G(740, 960 - 18 + dip, 1.0, priam({ pose: 'kneel', arms: 'plead', look: 1, expr: 'worried', breathe: bob(f) * 0.5 }))}
+      ${G(1200, 970, 1.0, PR.stool())}${G(1200, 970, 1.0, ach({ pose: 'sit', expr: 'sad', look: -1, breathe: bob(f, 2), blink: blink(f, [R.SH[5].a + 24]) }))}` };
+  } },
+  // 7 · "and kisses the hands that killed his son." – close: the old hands hold the young hands, he bows his head to them
+  { cue: 'and kisses', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 980, 600, 1.0], [d, 990, 590, 1.06]]);
+    const kiss = ease(win(f, R.at('kisses', 1, -2), R.at('hands', 1, 8)));
+    return { cam, bg: lampWall(f, 0.5), fg: handsCloseUp(f, l, kiss) + `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#faceDark)" opacity="0.6"/>` };
+  } },
+  // 8 · "He asks you to think" – he looks up at you, pleading
+  { cue: 'He asks', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 560, 1.5], [d, 960, 540, 1.6]]);
+    return { cam, bg: lampWall(f, 0.25),
+      fg: `${G(960, 1130, 1.55, priam({ pose: 'kneel', arms: 'plead', expr: 'worried', tears: true, breathe: bob(f) * 0.5, blink: blink(f, [R.SH[7].a + 18]) }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#faceDark)"/>` };
+  } },
+  // 9 · "of your own father." – a memory: old Peleus alone in his hall, waiting at the window
+  { cue: 'your own father.', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1040, 560, 1.12], [d, 1020, 560, 1.18]]);
+    return { cam, bg: `<g filter="url(#sepiaF)">${T.palace(f, { place: 'phthia', mid: true, seed: 8 })}
+      <path d="M820,670 L700,1080 L1300,1080 L1100,670 Z" fill="#fff6d8" opacity="0.18"/>
+      ${T.shadow(1240, 905, 110, 0.25)}${G(1240, 900, 0.95, K2.peleus({ old: true, expr: 'sad', look: -1, breathe: bob(f) * 0.5, blink: blink(f, [R.SH[8].a + 16]) }))}</g>`,
+      fg: `<rect x="-200" y="-200" width="2320" height="1480" fill="url(#memEdge)"/>${motes(f, 16, { col: '#fff3d6', seed: 81 })}` };
+  } },
+  // 10 · "And you both cry." – both faces in the lamp light, both crying
+  { cue: 'And you both', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 980, 600, 1.5], [d, 980, 590, 1.58]]);
+    const c = R.at('cry.', 1, -6);
+    return { cam, bg: lampWall(f, 0.5),
+      fg: `${G(760, 1070, 1.1, priam({ pose: 'kneel', arms: 'plead', look: 1, expr: f >= c ? 'cry' : 'sad', tears: true, breathe: bob(f) * 0.5 }))}
+      ${G(1220, 1070, 1.1, ach({ pose: 'sit', look: -1, expr: f >= c ? 'cry' : 'sad', breathe: bob(f, 2) * 0.5 }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#faceDark)" opacity="0.8"/>` };
+  } },
+  // 11 · "Him for his son." – the old king, and behind him his son
+  { cue: 'Him for', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 540, 1.45], [d, 920, 530, 1.55]]);
+    const m = easeOut(win(l, 4, 18));
+    return { cam, bg: lampWall(f, 0.3) + memory(1340, 380, G(0, 480, 1.0, K2.hector({ expr: 'calm', shieldOn: false, spear: false, cape: false })), m * 0.85, 0.9),
+      fg: `${G(820, 1150, 1.5, priam({ pose: 'kneel', arms: 'face', expr: 'cry', breathe: bob(f) * 0.5 }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#faceDark)" opacity="0.7"/>` };
+  } },
+  // 12 · "You for your dad, and for Patroclus." – you, and behind you your father, then your friend
+  { cue: 'You for', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 1020, 540, 1.45], [d, 1000, 530, 1.55]]);
+    const pa = R.at('Patroclus.', 1, -6), toP = ease(win(f, pa - 8, pa + 6)), m = easeOut(win(l, 4, 16));
+    return { cam, bg: lampWall(f, 0.7) + memory(600, 380, G(0, 480, 1.0, K2.peleus({ old: true, expr: 'smile' })), m * 0.85 * (1 - toP), 0.9)
+        + memory(600, 380, G(0, 480, 1.0, K2.patroclus({ expr: 'smile' })), m * 0.85 * toP, 0.9),
+      fg: `${G(1100, 1120, 1.5, ach({ pose: 'sit', expr: 'cry', breathe: bob(f) * 0.5 }))}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#faceDark)" opacity="0.7"/>` };
+  } },
+  // 13 · "You give him back his son, and eleven days of peace to bury him." – dawn: the cart leaves for Troy, you watch
+  { cue: 'You give', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 900, 560, 1.06], [d, 940, 560, 1.12]]);
+    const t = l / d, cx = lerp(820, 1260, t), sc = lerp(0.5, 0.36, t), cy = lerp(890, 830, t);
+    return { cam, bg: T.beach(f, { time: 'dawn', troy: true, sand: 760 }) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#3a2a50" opacity="0.12"/>`,
+      fg: `${T.shadow(cx + 60 * sc, cy, 260 * sc, 0.22)}${G(cx, cy, sc, cart(f, (l * 0.02) % 1, { spin: -l * 0.03 }))}
+      ${G(cx + 300 * sc, cy, sc * 0.9, priam({ pose: 'walk', expr: 'sad' }))}
+      ${G(300, 1180, 1.25, ach({ expr: 'sad', look: 1, breathe: bob(f), blink: blink(f, [R.SH[12].a + 50]) }))}` };
+  } },
+  // 14 · "For eleven days, nobody dies." – Troy at dawn: thin smoke, birds, spears in the grass, nothing moves but the wind
+  { cue: 'For eleven', draw(f, l, d) {
+    const cam = S.camera(l, [[0, 960, 540, 1.02], [d, 960, 520, 1.1]]);
+    let birds = '';
+    for (let i = 0; i < 6; i++) { const a = rnd(i + 40); birds += G((200 + a * 1400 + l * (2 + a * 1.5)) % 2100 - 100, 220 + a * 200 + Math.sin(l / 20 + i) * 20, 0.6 + a * 0.4, PR.bird({ flap: (Math.sin(l / 4 + i * 2) + 1) / 2, col: '#4a3a48' })); }
+    let grass = '';
+    for (let i = 0; i < 40; i++) { const a = rnd(i + 70), b = rnd(i + 90); grass += `<path d="M${(a * 1960 - 20).toFixed(0)},${(900 + b * 180).toFixed(0)} q${(Math.sin(f / 18 + i) * 6).toFixed(1)},-20 ${(4 + Math.sin(f / 18 + i) * 10).toFixed(1)},-${(30 + b * 24).toFixed(0)}" fill="none" stroke="#7a8a48" stroke-width="5" stroke-linecap="round"/>`; }
+    let spears = '';
+    for (let i = 0; i < 7; i++) { const a = rnd(i + 120); spears += `<path d="M${(150 + a * 1650).toFixed(0)},${(900 + a * 90).toFixed(0)} l${(20 - a * 40).toFixed(0)},-${(110 + a * 50).toFixed(0)}" stroke="#4a3426" stroke-width="7" stroke-linecap="round"/>`; }
+    return { cam, bg: `${T.sky('dawnSoft')}${T.sun(1420, 600, 110, '#fff1c8', '#ffd8a0')}${T.cloud(400, 240, 1.2, '#fde8d2', f, 0.12, 0.75)}${T.cloud(1300, 180, 0.9, '#fde8d2', f, 0.1, 0.65)}
+      ${T.troySkyline(560, 0.62, '#b88a84')}${T.smoke(f, 760, 520, 0.7, '#d9cfd6', 2, 0.35)}${T.smoke(f, 1200, 540, 0.6, '#d9cfd6', 6, 0.3)}
+      <path d="M-100,800 Q500,760 1000,790 Q1500,820 2020,780 L2020,1100 L-100,1100 Z" fill="#a89a62"/>
+      <path d="M-100,880 Q700,840 1300,890 Q1700,910 2020,870 L2020,1100 L-100,1100 Z" fill="#8f8a50"/>${spears}${grass}`,
+      fg: `${birds}${motes(f, 18, { col: '#fff3d6', seed: 99 })}` };
+  } },
+] });
+</script>
+</body>
+</html>

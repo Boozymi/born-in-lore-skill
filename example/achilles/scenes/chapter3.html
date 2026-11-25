@@ -1,0 +1,288 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Achilles – chapter III "The Prize"</title>
+<style>html, body { margin: 0; padding: 0; background: #000; overflow: hidden; } #stage { width: 1920px; height: 1080px; } svg { display: block; }</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../lib/cast.js"></script>
+<script src="../lib/cast2.js"></script>
+<script src="../lib/props.js"></script>
+<script src="../lib/scene.js"></script>
+<script src="../lib/sets.js"></script>
+<script src="../lib/runner.js"></script>
+<script>
+// Chapter III "The Prize" (EPISODE.md, part 5). Serious: Briseis is taken in front of the army – no jokes about her, a plain
+// name label only. The sword half drawn, the lunge, the sword back. The one light beat is the running gag: your mom comes
+// out of the sea, again (counter 3). Olympus, the scale tips against the Greeks, and the time-lapse button: you sit down
+// and you don't get up. Every shot cues on the narrator's words (?words=…).
+const K = window.CAST, K2 = window.CAST2, PR = window.PROPS, S = window.SCENE, T = window.SETS;
+const { C, INK } = K;
+const { ease, easeOut, win, lerp, popLabel, arrow, strike, stamp, motes, blink } = S;
+const TEXT = `Then Agamemnon takes Briseis from you, in front of the whole army. She came to you from one of those cities, as your share. But to you, she's not a prize. You reach for your sword. You almost kill him right there. Then you put the sword back. And your mom comes out of the sea. Again. She gets Zeus to let the Greeks lose, until they beg for you. You sit down. And you don't get up.`;
+const bob = (f, k = 0) => Math.sin((f + k * 13) / 14) * 3.5;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+// camera with exact targets (SCENE.camera multiplies every move by 2.4; here the keys are the real end points)
+const cam = (l, keys) => { const b = keys[0]; return S.camera(l, keys.map((k, i) => i ? [k[0], b[1] + (k[1] - b[1]) / 2.4, b[2] + (k[2] - b[2]) / 2.4, b[3] + (k[3] - b[3]) / 2.4] : k)); };
+const fig = (x, y, s, svg, rot = 0) => `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})${rot ? ` rotate(${rot.toFixed(2)})` : ''} scale(${s})">${svg}</g>`;
+function spark(x, y, t, z = 30, col = '#fff8d0') {
+  if (t <= 0 || t >= 1) return '';
+  const k = Math.sin(t * Math.PI) * 1.3, q = z * 0.27;
+  return `<path transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(t * 50).toFixed(0)}) scale(${k.toFixed(2)})" d="M0,-${z} L${q},-${q} L${z},0 L${q},${q} L0,${z} L-${q},${q} L-${z},0 L-${q},-${q} Z" fill="${col}" stroke="${INK}" stroke-width="3"/>`;
+}
+const bump = (t, a, b, c, d) => t <= a || t >= d ? 0 : t < b ? (t - a) / (b - a) : t <= c ? 1 : (d - t) / (d - c);
+
+// ---------- helpers ----------
+// warm blurred lights of the camp behind a close-up
+function bokeh(f, n, seed, col = '#ffb070', op = 0.35) {
+  let s = '';
+  for (let i = 0; i < n; i++) { const a = S.rnd(i + seed), b = S.rnd(i * 2.7 + seed + 5);
+    s += `<circle cx="${(a * 2000 - 40 + Math.sin(f / 60 + i) * 12).toFixed(0)}" cy="${(420 + b * 560).toFixed(0)}" r="${(30 + b * 70).toFixed(0)}" fill="${col}" opacity="${(op * (0.4 + 0.6 * Math.abs(Math.sin(f / 23 + i)))).toFixed(2)}" filter="url(#soft)"/>`; }
+  return s;
+}
+// two-bone arm: shoulder s, hand target h → elbow (bends outwards, +x side)
+function ik(s, h, L1 = 86, L2 = 64, side = 1) {
+  const dx = h[0] - s[0], dy = h[1] - s[1], d = Math.min(L1 + L2 - 0.5, Math.max(Math.abs(L1 - L2) + 0.5, Math.hypot(dx, dy)));
+  const a = Math.acos(clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1)), base = Math.atan2(dy, dx), an = base + side * a;
+  return [s[0] + Math.cos(an) * L1, s[1] + Math.sin(an) * L1];
+}
+// an armoured arm in Achilles' style (skin, bronze bracer), drawn in his figure coordinates
+function armPiece(e, h, which) {
+  let s = '';
+  if (which !== 'fore') s += K.limb(...SH_R, e[0], e[1], 30, C.skin, C.skinS);
+  if (which !== 'upper') {
+    s += K.limb(e[0], e[1], h[0], h[1], 27, C.skin, C.skinS);
+    const p = t => [lerp(e[0], h[0], t), lerp(e[1], h[1], t)], p1 = p(0.5), p2 = p(0.84);
+    s += `<path d="M${p1[0].toFixed(1)},${p1[1].toFixed(1)} L${p2[0].toFixed(1)},${p2[1].toFixed(1)}" stroke="${INK}" stroke-width="40"/><path d="M${p1[0].toFixed(1)},${p1[1].toFixed(1)} L${p2[0].toFixed(1)},${p2[1].toFixed(1)}" stroke="${C.bronze}" stroke-width="32"/>`;
+    s += `<circle cx="${h[0].toFixed(1)}" cy="${h[1].toFixed(1)}" r="17" fill="${C.skin}" stroke="${INK}" stroke-width="4"/>`;
+  }
+  return s;
+}
+const SH_R = [84, -384];
+// Achilles (armour, no cape, no shield) whose right forearm is cut away so the scene can draw its own arm on the sword.
+// drawn 0..1 = how far the sword is out of the scabbard at his right hip; hand: 'rest' | 'grip'; o.expr, o.look, f
+function achSword(f, drawn, gripT, o = {}) {
+  const mouth = [112, -226], ang = -20, rad = ang * Math.PI / 180, dd = drawn * 170 + 41;
+  const grip = [mouth[0] + dd * Math.sin(rad), mouth[1] - dd * Math.cos(rad)];   // the grip, up the hilt from the scabbard mouth
+  const rest = [108, -236], h = [lerp(rest[0], grip[0], gripT), lerp(rest[1], grip[1], gripT)];
+  const e = ik(SH_R, h, 86, 64, -1);
+  const fig2 = K2.achilles({ arms: 'down', shieldOn: false, cape: false, expr: o.expr || 'angry', look: o.look || 0, breathe: 0, blink: o.blink || 0 });
+  return `${armPiece(e, h, 'upper')}<g clip-path="url(#noRA)">${fig2}</g>
+    <g transform="translate(${mouth[0]} ${mouth[1]})">${PR.sword({ drawn, angle: ang })}</g>${armPiece(e, h, 'fore')}`;
+}
+// Achilles with crossed arms (forearms cut away and redrawn crossing in front), pose 'stand' | 'sit'
+function achCrossed(o = {}) {
+  const sit = o.pose === 'sit', dy = sit ? 46 : 0;
+  const eL = [-100, -294 + dy], eR = [100, -296 + dy], hL = [44, -276 + dy], hR = [-44, -286 + dy];
+  const fore = (e, h) => { const p = t => [lerp(e[0], h[0], t), lerp(e[1], h[1], t)], p1 = p(0.45), p2 = p(0.8);
+    return K.limb(e[0], e[1], h[0], h[1], 27, C.skin, C.skinS) + `<path d="M${p1[0].toFixed(1)},${p1[1].toFixed(1)} L${p2[0].toFixed(1)},${p2[1].toFixed(1)}" stroke="${INK}" stroke-width="40"/><path d="M${p1[0].toFixed(1)},${p1[1].toFixed(1)} L${p2[0].toFixed(1)},${p2[1].toFixed(1)}" stroke="${C.bronze}" stroke-width="32"/>`
+      + `<circle cx="${h[0]}" cy="${h[1]}" r="17" fill="${C.skin}" stroke="${INK}" stroke-width="4"/>`; };
+  const man = K2.achilles({ pose: sit ? 'sit' : 'stand', arms: 'down', shieldOn: false, spear: false, cape: false, expr: o.expr || 'grumpy', look: o.look || 0, blink: o.blink || 0, breathe: o.breathe || 0 });
+  return `<g clip-path="url(#noFA${sit ? 'S' : ''})">${man}</g>${fore(eR, hR)}${fore(eL, hL)}`;
+}
+// one of Agamemnon's heralds: long olive robe, a staff with a bronze knob; walks to the left
+function herald(o = {}) {
+  const man = K2.man({ robe: true, pose: 'walk', arms: 'down', expr: o.expr || 'stern', dir: -1, breathe: o.breathe || 0, blink: o.blink || 0,
+    head: { hair: 'short', beard: 'short' }, P: { tunic: '#5b6b4e', tunicS: '#46543b', hem: '#c9a46c', hair: '#3b2a20', hairS: '#271b14', beard: '#3b2a20', beardS: '#271b14' } });
+  return `${man}<path d="M-112,-640 L-112,-6" stroke="${INK}" stroke-width="18" stroke-linecap="round"/><path d="M-112,-640 L-112,-6" stroke="${C.wood}" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="-112" cy="-650" r="20" fill="${C.bronze}" stroke="${INK}" stroke-width="4"/><circle cx="-108" cy="-238" r="16" fill="${C.skin}" stroke="${INK}" stroke-width="4"/>`;
+}
+// the night beach of the running gag (same place as chapter I): moon, sea, a rock to sit on
+function nightBeach(f) {
+  return `${T.night(f)}<path d="M980,1100 L1060,872 Q1500,830 1980,884 L1980,1100 Z" fill="#8a7a62" stroke="${INK}" stroke-width="5"/>
+    <path d="M1218,1006 Q1212,890 1290,866 Q1380,852 1452,866 Q1518,890 1508,1006 Z" fill="#4e4a55" stroke="${INK}" stroke-width="5"/>
+    <path d="M1260,900 Q1340,880 1430,892" fill="none" stroke="#6a6574" stroke-width="8" stroke-linecap="round"/>`;
+}
+
+// ---------- shots ----------
+const SHOTS = [
+  // 1 · "Then Agamemnon takes Briseis from you," – dusk: two heralds lead Briseis away from your tent; she looks back
+  { cue: 'Then Agamemnon', draw(f, l, d) {
+    const br = R.at('Briseis');
+    const c = cam(l, [[0, 1060, 640, 1.25], [d, 1000, 650, 1.3]]);
+    const xb = 980 - l * 1.5, hop = k => Math.abs(Math.sin((l + k * 6) / 6)) * -7;
+    const look = f >= br + 6 ? 0.9 : 0.2;
+    return { cam: c, bg: T.camp(f, { time: 'dusk' }) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#1d1426" opacity="0.18"/>`,
+      fg: `${T.shadow(1540, 890, 330, 0.25)}${fig(1540, 892, 1.0, PR.tent({ lit: true, w: 640, h: 440, open: 0.9 }))}
+      ${T.shadow(1300, 910, 80)}${fig(1300, 910, 0.64, K2.achilles({ arms: 'down', shieldOn: false, cape: false, spear: false, expr: 'hurt', look: -0.8, breathe: bob(f, 3), blink: blink(f, [br + 20]) }))}
+      ${T.shadow(xb + 210, 915, 70)}${fig(xb + 210, 915 + hop(1), 0.64, herald({ breathe: bob(f, 1) }))}
+      ${T.shadow(xb, 920, 80)}${fig(xb, 920 + hop(0) * 0.5, 0.72, K2.briseis({ expr: 'sad', veil: true, look, breathe: bob(f, 2), blink: blink(f, [br - 10, br + 30]) }))}
+      ${T.shadow(xb - 220, 915, 70)}${fig(xb - 220, 915 + hop(2), 0.64, herald({ breathe: bob(f, 4) }))}
+      ${popLabel(f, br, 900, 470, 62, 'BRISEIS')}` };
+  } },
+  // 2 · "in front of the whole army." – wide: the army stands around them in a silent ring
+  { cue: 'in front of', draw(f, l, d) {
+    const c = cam(l, [[0, 960, 640, 1.24], [d, 960, 600, 1.06]]);
+    const cx = 960, cy = 790, rx = 780, ry = 150;
+    const items = [];
+    for (let i = 0; i < 15; i++) { const th = Math.PI + (i + 0.5) / 15 * Math.PI, x = cx + rx * Math.cos(th), y = cy + ry * Math.sin(th), s = 0.28 + 0.12 * (y - (cy - ry)) / ry;
+      items.push([y, fig(x, y, s, K2.soldier({ side: 'greek', k: i % 3, expr: 'stern', breathe: bob(f, i) }))]); }
+    // a second, farther ring behind the first (the whole army); the ring stays open towards the camera
+    for (let i = 0; i < 19; i++) { const th = Math.PI + (i + 0.5) / 19 * Math.PI, x = cx + rx * 1.18 * Math.cos(th), y = cy - 50 + ry * 1.25 * Math.sin(th), s = 0.22 + 0.1 * (y - (cy - 50 - ry * 1.25)) / (ry * 1.25);
+      items.push([y, fig(x, y, s, K2.soldier({ side: 'greek', k: (i + 1) % 3, expr: 'stern', breathe: bob(f, i + 3) }))]); }
+    for (const [x, k] of [[150, 0], [1770, 2]]) items.push([cy + 120, fig(x, cy + 120, 0.5, K2.soldier({ side: 'greek', k, expr: 'stern', breathe: bob(f, k) }))]);
+    items.push([cy - 2, fig(860, cy - 2, 0.4, K2.briseis({ expr: 'sad', veil: true, look: 0.6, breathe: bob(f, 2) }))]);
+    items.push([cy - 4, fig(740, cy - 4, 0.37, herald({}))]);
+    items.push([cy - 3, fig(985, cy - 3, 0.37, herald({}))]);
+    items.push([cy, fig(1150, cy, 0.4, K2.agamemnon({ arms: 'down', expr: 'smug', breathe: bob(f, 5) }))]);
+    items.push([cy + 1, fig(620, cy + 1, 0.38, K2.achilles({ arms: 'down', shieldOn: false, cape: false, spear: false, expr: 'hurt', look: 0.7, breathe: bob(f, 6) }))]);
+    items.sort((a, b) => a[0] - b[0]);
+    return { cam: c, bg: `${T.sky('dusk')}${T.sun(1520, 470, 110)}${T.seaBand(430, 160, '#3a4058', '#ffd2a0', f, 17)}<rect y="580" width="1920" height="600" fill="#7a5c46"/>
+      ${[200, 520, 1400, 1720].map((x, i) => fig(x, 640, 0.32, PR.tent({ w: 620, h: 430 }))).join('')}
+      ${[360, 1560].map((x, i) => T.flame(f, x, 700, 0.35, i)).join('')}<rect x="-200" y="-200" width="2320" height="1480" fill="#1d1426" opacity="0.22"/>`,
+      fg: items.map(a => a[1]).join('') + motes(f, 16, { col: '#ffcf8a', seed: 61 }) };
+  } },
+  // 3 · "She came to you from one of those cities, as your share." – Briseis close; far behind her a burnt city glows
+  { cue: 'She came', draw(f, l, d) {
+    const sh = R.at('share');
+    const c = cam(l, [[0, 820, 540, 1.25], [d, 1110, 520, 1.3]]);
+    return { cam: c, bg: `${T.sky('troy')}<circle cx="430" cy="640" r="380" fill="#ff8a40" opacity="0.32" filter="url(#soft)"/>
+      ${T.smoke(f, 360, 600, 0.9, '#3a2430', 3, 0.55)}${T.smoke(f, 520, 620, 0.7, '#3a2430', 6, 0.45)}
+      <path d="M-200,700 Q200,600 420,610 Q640,620 900,700 Q1400,760 2120,700 L2120,1300 L-200,1300 Z" fill="#2c1a22"/>
+      <g filter="url(#silRed)">${fig(430, 640, 2.2, PR.cityIcon({}))}</g>
+      ${[0, 1, 2, 3].map(i => T.flame(f, 330 + i * 70, 640 - (i % 2) * 20, 0.22, i)).join('')}
+      <path d="M-200,840 Q700,800 2120,860 L2120,1300 L-200,1300 Z" fill="#1d1218"/>${motes(f, 20, { col: '#ffb070', seed: 71 })}`,
+      fg: fig(1180, 1170, 1.75, K2.briseis({ expr: f >= sh ? 'sad' : 'calm', veil: true, look: f >= sh ? -0.5 : 0.1, breathe: bob(f), blink: blink(f, [f - l + 30, sh + 18]) })) };
+  } },
+  // 4 · "But to you, she's not a prize." – your face, hurt
+  { cue: 'But to you', draw(f, l, d) {
+    const pz = R.at('prize');
+    const c = cam(l, [[0, 960, 560, 1.0], [d, 960, 515, 1.08]]);
+    return { cam: c, bg: `${T.sky('dusk')}<rect x="-200" y="-200" width="2320" height="1480" fill="#1b1220" opacity="0.4"/>${bokeh(f, 12, 21)}${bokeh(f, 6, 51, '#ffd59a', 0.25)}`,
+      fg: fig(960, 1480, 2.0, K2.achilles({ arms: 'down', expr: 'hurt', look: -0.3, shieldOn: false, cape: true, spear: false, breathe: bob(f), blink: blink(f, [f - l + 24, pz + 4]) })) };
+  } },
+  // 5 · "You reach for your sword." – your hand goes to the hilt, the blade slides out a little
+  { cue: 'You reach', draw(f, l, d) {
+    const rc = R.at('reach'), sw = R.at('sword');
+    const c = cam(l, [[0, 975, 650, 1.68], [d, 985, 630, 1.76]]);
+    const gripT = easeOut(win(f, rc - 2, rc + 6)), drawn = 0.36 * ease(win(f, rc + 6, sw + 6));
+    return { cam: c, bg: `${T.sky('fireNight')}${bokeh(f, 14, 33, '#ff8a50', 0.3)}<rect x="-200" y="-200" width="2320" height="1480" fill="#140a10" opacity="0.25"/>`,
+      fg: `<g transform="translate(736 1252) scale(2.4)">${achSword(f, drawn, gripT, { expr: 'angry' })}</g>
+      ${spark(736 + 2.4 * (112 - 0.171 * drawn * 170), 1252 + 2.4 * (-226 - 0.47 * drawn * 170), win(f, sw + 2, sw + 16), 26)}
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#rimR)"/>` };
+  } },
+  // 6 · "You almost kill him right there." – the lunge, the sword stops a hand's width before him, his plate drops, red flash
+  { cue: 'You almost', draw(f, l, d) {
+    const kl = R.at('kill'), a = f - l, lg = easeOut(win(l, 1, 6)), drop = a + 6;
+    const c = cam(l, [[0, 1000, 600, 1.05], [7, 1040, 600, 1.14], [d, 1060, 590, 1.18]]);
+    const sh = f >= kl && f < kl + 10 ? Math.sin((f - kl) * 2.4) * 9 * (1 - (f - kl) / 10) : 0;
+    const flash = f >= kl ? 1 - win(f, kl, kl + 12) : 0;
+    const td = Math.max(0, f - drop), py = Math.min(948, 705 + 0.5 * 6 * td * td), pr = Math.min(38, td * 5), landed = py >= 948;
+    const plate = f < drop ? '' : `<g transform="translate(${(1380 + td * 3).toFixed(1)} ${py.toFixed(1)}) rotate(${(landed ? 14 : pr).toFixed(1)}) scale(0.95)">${PR.plate({ empty: landed })}</g>
+      ${landed ? `<circle cx="1480" cy="944" r="11" fill="#7b4a8f" stroke="${INK}" stroke-width="2.5"/><circle cx="1300" cy="950" r="11" fill="#7b4a8f" stroke="${INK}" stroke-width="2.5"/><g transform="translate(1250 940) rotate(-30) scale(0.9)"><ellipse cx="0" cy="0" rx="40" ry="24" fill="#c9773a" stroke="${INK}" stroke-width="4"/></g>` : ''}`;
+    return { cam: `translate(${sh.toFixed(1)} ${(sh * 0.5).toFixed(1)}) ${c}`,
+      bg: T.camp(f, { time: 'dusk' }) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#1d1426" opacity="0.3"/>
+        <rect x="-200" y="-200" width="2320" height="1480" fill="url(#heroic)" opacity="${(0.85 * flash + (f >= kl ? 0.25 : 0)).toFixed(2)}"/>`,
+      fg: `${T.shadow(1380, 955, 150)}${fig(1380, 955, 0.95, K2.agamemnon({ arms: f < drop ? 'plate' : 'out', expr: f < drop ? 'smug' : 'shocked', breathe: bob(f) }))}${plate}
+      ${T.shadow(lerp(650, 850, lg), 960, 150)}${fig(lerp(650, 850, lg), 960, 0.95, K2.achilles({ pose: 'lunge', arms: 'sword', expr: 'angry', shieldOn: false, breathe: bob(f, 2) }))}`,
+      hud: flash > 0 ? `<rect width="1920" height="1080" fill="#ff3a2a" opacity="${(0.35 * flash).toFixed(2)}"/>` : '' };
+  } },
+  // 7 · "Then you put the sword back." – the blade slides back into the scabbard, jaw clenched
+  { cue: 'Then you put', draw(f, l, d) {
+    const bk = R.at('back');
+    const c = cam(l, [[0, 960, 560, 1.0], [d, 975, 590, 1.07]]);
+    const drawn = 0.36 * (1 - ease(win(f, f - l + 4, bk + 4)));
+    return { cam: c, bg: `${T.sky('dusk')}<rect x="-200" y="-200" width="2320" height="1480" fill="#16122a" opacity="0.45"/>${bokeh(f, 12, 41, '#c98aa0', 0.25)}`,
+      fg: `<g transform="translate(820 1360) scale(1.9)">${achSword(f, drawn, 1, { expr: 'determined', look: -0.2, blink: blink(f, [bk + 10]) })}</g>
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#rimV)"/>` };
+  } },
+  // 8 · "And your mom comes out of the sea." – the night beach, Thetis rises from the water (again)
+  { cue: 'And your mom', draw(f, l, d) {
+    const rise = easeOut(win(l, 3, 24));
+    const c = cam(l, [[0, 960, 560, 1.04], [d, 985, 545, 1.09]]);
+    const wt = win(l, 3, 30);
+    let drops = '';
+    if (wt > 0 && wt < 1) for (let i = 0; i < 16; i++) { const r = S.rnd(i + 40), ang = -Math.PI * (0.1 + 0.8 * r), v = 10 + S.rnd(i + 55) * 12, k = wt * 30;
+      drops += `<circle cx="${(640 + Math.cos(ang) * v * k).toFixed(0)}" cy="${(840 + Math.sin(ang) * v * k + 0.7 * k * k).toFixed(0)}" r="${(6 + r * 9).toFixed(0)}" fill="#cfe8f2" stroke="${INK}" stroke-width="2.5" opacity="${(1 - wt).toFixed(2)}"/>`; }
+    return { cam: c, bg: nightBeach(f),
+      fg: `${fig(640, lerp(1200, 870, rise), 1.0, K.thetis({ expr: 'calm', breathe: bob(f) }))}${drops}
+      ${T.seaBand(808, 92, '#1b2a44', '#8fa6c9', f, 57)}<ellipse cx="640" cy="812" rx="${(130 + 80 * wt).toFixed(0)}" ry="20" fill="none" stroke="#cfe8f2" stroke-width="5" opacity="${(0.8 * (1 - wt)).toFixed(2)}"/>
+      ${fig(1362, 997, 0.9, K2.achilles({ pose: 'sit', arms: 'down', shieldOn: false, spear: false, cape: false, expr: 'grumpy', look: -0.9, breathe: bob(f, 3) }))}` };
+  } },
+  // 9 · "Again." – same framing, deadpan; the counter: MOM FROM THE SEA 3
+  { cue: 'Again', draw(f, l, d) {
+    const ag = R.at('Again'), flip = ag + 9;
+    const c = cam(l, [[0, 985, 545, 1.09], [d, 990, 540, 1.1]]);
+    const n = f < flip ? 2 : 3;
+    return { cam: c, bg: nightBeach(f),
+      fg: `${fig(640, 870, 1.0, K.thetis({ expr: 'smile', breathe: bob(f), blink: blink(f, [ag + 16]) }))}${T.seaBand(808, 92, '#1b2a44', '#8fa6c9', f, 57)}
+      ${fig(1362, 997, 0.9, K2.achilles({ pose: 'sit', arms: 'down', shieldOn: false, spear: false, cape: false, expr: 'tired', look: 0, breathe: bob(f, 3) }))}`,
+      hud: `<g transform="translate(1390 230) scale(${S.popScale(f - ag).toFixed(3)})" filter="url(#drop)">
+          <rect x="-300" y="-100" width="600" height="230" rx="22" fill="#2a1f1b" opacity="0.55"/>
+          ${S.word(0, -24, 46, 'MOM FROM THE SEA')}
+          <g transform="translate(0 70) scale(${(f < flip ? 1 : S.popScale(f - flip)).toFixed(3)})">${S.word(0, 40, 130, String(n), { fill: '#f6d35b', sw: 18 })}</g></g>` };
+  } },
+  // 10 · "She gets Zeus" – Olympus under dark clouds: Thetis kneels before Zeus, he nods
+  { cue: 'gets Zeus', draw(f, l, d) {
+    const zs = R.at('Zeus');
+    const c = cam(l, [[0, 920, 560, 1.06], [d, 970, 540, 1.13]]);
+    const nod = Math.sin(win(f, zs, zs + 12) * Math.PI) * 5;
+    const fl = (Math.floor(f / 3) % 7 === 0) ? 0.5 : 0.15;
+    let front = '';
+    for (let i = 0; i < 8; i++) { const a = S.rnd(i + 900); front += T.cloud(-120 + i * 290 + a * 60, 1010 + a * 50, 2.0 + a * 0.6, '#cfc0d0', f, 0.1 + a * 0.08, 1); }
+    return { cam: c, bg: T.olympus(f, { dark: true }) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#1e1830" opacity="0.32"/><circle cx="1500" cy="300" r="260" fill="#ffe680" opacity="${(fl * 0.5).toFixed(2)}" filter="url(#soft)"/>`,
+      fg: `<g transform="rotate(${nod.toFixed(2)} 1250 1000)">${fig(1250, 1000, 1.2, K2.zeus({ expr: 'stern', breathe: bob(f), blink: blink(f, [zs + 16]) }))}</g>
+      ${fig(560, 1060, 0.92, K.thetis({ expr: 'worried', breathe: bob(f, 2) }), 6)}${front}` };
+  } },
+  // 11 · "to let the Greeks lose, until they beg for you." – the scale: lightning strikes the Greek pan, it sinks
+  { cue: 'Greeks lose', draw(f, l, d) {
+    const ls = R.at('lose'), bg2 = R.at('beg');
+    const c = cam(l, [[0, 960, 560, 1.04], [d, 890, 600, 1.14]]);
+    const k1 = win(f, ls, ls + 10), k2 = win(f, bg2, bg2 + 10);
+    const tilt = -(16 * easeOut(k1) + 2 * Math.sin(k1 * Math.PI * 2) * (1 - k1) + 9 * easeOut(k2)) + (f >= bg2 && f < bg2 + 8 ? Math.sin((f - bg2) * 2.5) * 2 : 0);
+    const helm = (P, x) => `<g transform="translate(${x} -26)">${PR.helmetProp({ r: 38, P })}</g>`;
+    const gk = { metal: C.bronze, metalS: C.bronzeS, crest: '#2f7f88' }, tr = { metal: '#c99a52', metalS: '#9c7234', crest: '#2a1f1b' };
+    const s = 1.6, t = tilt * Math.PI / 180, L = 220, top = -400;
+    const pan = sd => [960 + s * sd * Math.cos(t) * L, 1030 + s * (top + sd * Math.sin(t) * L + 170)];
+    const [glx, gly] = pan(-1), [trx, try_] = pan(1);
+    const strike1 = f >= ls - 2 && f < ls + 6, strike2 = f >= bg2 - 2 && f < bg2 + 6;
+    const flash = Math.max(f >= ls - 2 ? 1 - win(f, ls - 2, ls + 8) : 0, f >= bg2 - 2 ? 1 - win(f, bg2 - 2, bg2 + 8) : 0);
+    return { cam: c, bg: T.olympus(f, { dark: true }) + `<rect x="-200" y="-200" width="2320" height="1480" fill="#140f22" opacity="${(0.5 - 0.15 * flash).toFixed(2)}"/>
+        <circle cx="${glx.toFixed(0)}" cy="${(gly + 200).toFixed(0)}" r="300" fill="#0a0814" opacity="${(0.25 * easeOut(k1)).toFixed(2)}" filter="url(#soft)"/>
+        <circle cx="${trx.toFixed(0)}" cy="${(try_ - 120).toFixed(0)}" r="380" fill="#ffe2a0" opacity="${(0.25 * easeOut(k1)).toFixed(2)}" filter="url(#soft)"/>`,
+      fg: `${fig(960, 1030, s, PR.balanceScale({ tilt, left: helm(gk, -34) + helm(gk, 34), right: helm(tr, -34) + helm(tr, 34) }))}
+      ${popLabel(f, f - l + 3, glx, gly + 140, 46, 'GREEKS')}${popLabel(f, f - l + 6, trx, try_ + 140, 46, 'TROJANS')}
+      ${strike1 || strike2 ? `<path d="M${(glx - 160).toFixed(0)},-60 L${(glx - 60).toFixed(0)},${(gly * 0.35).toFixed(0)} L${(glx - 120).toFixed(0)},${(gly * 0.55).toFixed(0)} L${(glx - 10).toFixed(0)},${(gly - 80).toFixed(0)}" fill="none" stroke="${INK}" stroke-width="20" stroke-linejoin="round"/><path d="M${(glx - 160).toFixed(0)},-60 L${(glx - 60).toFixed(0)},${(gly * 0.35).toFixed(0)} L${(glx - 120).toFixed(0)},${(gly * 0.55).toFixed(0)} L${(glx - 10).toFixed(0)},${(gly - 80).toFixed(0)}" fill="none" stroke="#fff6c0" stroke-width="10" stroke-linejoin="round"/>` : ''}`,
+      hud: flash > 0 ? `<rect width="1920" height="1080" fill="#f4f0ff" opacity="${(0.4 * flash).toFixed(2)}"/>` : '' };
+  } },
+  // 12 · "You sit down. And you don't get up." – arms crossed in front of your tent; time-lapse: sunset, night, dawn, day
+  { cue: 'You sit', draw(f, l, d) {
+    const st = R.at('sit'), dn = R.at("don't");
+    const tau = win(f, dn - 4, R.END - 2);
+    const c = cam(l, [[0, 920, 640, 1.2], [d, 950, 620, 1.26]]);
+    const nightA = bump(tau, 0.1, 0.26, 0.55, 0.68), dawnA = bump(tau, 0.55, 0.66, 0.78, 0.9), dayA = clamp((tau - 0.8) / 0.15);
+    const sunSet = [lerp(1500, 1760, clamp(tau / 0.2)), lerp(470, 820, clamp(tau / 0.2))], sunRise = [lerp(180, 520, clamp((tau - 0.62) / 0.38)), lerp(820, 240, clamp((tau - 0.62) / 0.38))];
+    const mt = clamp((tau - 0.2) / 0.45), moonP = [lerp(160, 1760, mt), 560 - Math.sin(mt * Math.PI) * 430];
+    let clouds = '';
+    for (let i = 0; i < 4; i++) { const a = S.rnd(i + 300); clouds += `<g transform="translate(${(((a * 2400 + tau * 4200 + i * 600) % 2600) - 340).toFixed(0)} ${(150 + a * 200).toFixed(0)}) scale(${(0.9 + a * 0.6).toFixed(2)})" opacity="${(0.5 + 0.3 * a).toFixed(2)}"><ellipse rx="120" ry="34" fill="${nightA > 0.5 ? '#3a3f58' : '#fde3c2'}"/><ellipse cx="-50" cy="-22" rx="60" ry="36" fill="${nightA > 0.5 ? '#3a3f58' : '#fde3c2'}"/><ellipse cx="40" cy="-28" rx="70" ry="42" fill="${nightA > 0.5 ? '#3a3f58' : '#fde3c2'}"/></g>`; }
+    const sky = `${T.sky('dusk')}<rect x="-200" y="-200" width="2320" height="1480" fill="url(#night)" opacity="${nightA.toFixed(3)}"/>
+      <rect x="-200" y="-200" width="2320" height="1480" fill="url(#dawn)" opacity="${dawnA.toFixed(3)}"/><rect x="-200" y="-200" width="2320" height="1480" fill="url(#beach)" opacity="${dayA.toFixed(3)}"/>
+      <g opacity="${nightA.toFixed(3)}">${T.stars(f, 50, 560, 33)}</g>
+      ${tau < 0.25 ? T.sun(sunSet[0], sunSet[1], 110) : ''}${tau > 0.6 ? T.sun(sunRise[0], sunRise[1], 100, '#ffe2a8', '#ffd08a') : ''}
+      ${nightA > 0.02 ? `<g opacity="${nightA.toFixed(3)}">${T.moon(moonP[0], moonP[1], 56)}</g>` : ''}${clouds}`;
+    const sea = `${T.seaBand(560, 140, '#3a4058', '#ffd2a0', f, 17)}<rect x="-200" y="560" width="2320" height="140" fill="#0e1830" opacity="${(0.6 * nightA).toFixed(3)}"/><rect x="-200" y="560" width="2320" height="140" fill="#5d8fae" opacity="${(0.7 * dayA).toFixed(3)}"/>`;
+    const ground = `<rect y="690" width="1920" height="500" fill="#7d5e48"/><rect y="690" width="1920" height="500" fill="#2f2a33" opacity="${(0.9 * nightA).toFixed(3)}"/><rect y="690" width="1920" height="500" fill="#e0c08c" opacity="${(0.9 * dayA + 0.4 * dawnA).toFixed(3)}"/>
+      <path d="M-50,696 Q960,680 1980,700" fill="none" stroke="#f6f0dc" stroke-width="8" opacity="0.35"/>`;
+    const sitting = f >= st + 2, plop = sitting ? Math.sin(win(f, st + 2, st + 9) * Math.PI) * -18 : 0;
+    const shx = lerp(-80, 80, tau);
+    const puff = f >= st + 2 ? PR.dustCloud({ t: win(f, st + 2, st + 24), w: 300, r: 40, col: '#d9bd98', seed: 4 }) : '';
+    const tint = `<rect x="-200" y="-200" width="2320" height="1480" fill="#0b1430" opacity="${(0.42 * nightA).toFixed(3)}"/><rect x="-200" y="-200" width="2320" height="1480" fill="#ff9a60" opacity="${(0.12 * dawnA).toFixed(3)}"/>`;
+    return { cam: c, bg: sky + sea + ground + fig(1300, 860, 1.0, PR.tent({ lit: nightA > 0.3, w: 620, h: 430, open: 0.8 })),
+      fg: `<ellipse cx="${(780 + shx).toFixed(0)}" cy="952" rx="170" ry="20" fill="#000" opacity="${(0.25 - 0.15 * nightA).toFixed(2)}"/>
+      ${fig(780, 952, 0.95, PR.stool())}
+      ${fig(780, 952 + plop, 0.95, achCrossed({ pose: sitting ? 'sit' : 'stand', expr: 'grumpy', look: 0, blink: blink(f, [st + 16, dn + 20, dn + 60, dn + 95]), breathe: bob(f) }))}
+      <g transform="translate(780 950)">${puff}</g>${tint}` };
+  } },
+];
+
+const R = RUN({ TEXT, OFF: 1.6, card: ['III', 'The Prize'], tail: 1.3, SHOTS,
+  defs: () => `<clipPath id="noRA"><path d="M-500,-1000 L88,-1000 L88,300 L-500,300 Z M88,-1000 L500,-1000 L500,-405 L88,-405 Z"/></clipPath>
+    <clipPath id="noFA"><path d="M-88,-1000 L88,-1000 L88,300 L-88,300 Z M-500,-1000 L500,-1000 L500,-310 L-500,-310 Z M-500,-120 L500,-120 L500,300 L-500,300 Z"/></clipPath>
+    <clipPath id="noFAS"><path d="M-88,-1000 L88,-1000 L88,300 L-88,300 Z M-500,-1000 L500,-1000 L500,-264 L-500,-264 Z M-500,-170 L500,-170 L500,300 L-500,300 Z"/></clipPath>
+    <linearGradient id="rimR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#140810" stop-opacity="0.55"/><stop offset="0.45" stop-color="#140810" stop-opacity="0"/><stop offset="1" stop-color="#ff5a30" stop-opacity="0.22"/></linearGradient>
+    <linearGradient id="rimV" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8a7ad0" stop-opacity="0.22"/><stop offset="0.4" stop-color="#100c1c" stop-opacity="0"/><stop offset="1" stop-color="#100c1c" stop-opacity="0.45"/></linearGradient>` });
+</script>
+</body>
+</html>
