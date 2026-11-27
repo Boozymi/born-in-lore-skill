@@ -2,9 +2,9 @@
 
 *Unofficial. Not made, endorsed or sponsored by the Born in Lore channel or by Anthropic. See [legal notes](#legal-notes).*
 
-The free Claude skill from the video **"How to Make 'What If You Were Born As…' Videos Using Claude (Full Workflow)"** (<VIDEO-LINK>).
+The free Claude skill from the video [**"How to Make 'What If You Were Born As…' Videos Using Claude (Full Workflow)"**](https://youtu.be/hxbPiBWVA1U).
 
-![AGE 0 – ALMOST IMMORTAL: our Achilles episode, every frame drawn in code](docs/img/banner.jpg)
+[![AGE 0 – ALMOST IMMORTAL: our Achilles episode, every frame drawn in code](docs/img/banner.jpg)](https://youtu.be/hxbPiBWVA1U)
 
 It makes complete **"What if you were born as …?"** life-story cartoons in the style of [@Borninlore](https://www.youtube.com/@Borninlore):
 as long as the story needs (the channel runs 7–14 minutes), a hook, a prologue and nine chapters, every frame drawn in code (SVG rendered in Chrome), the music written in code,
@@ -252,6 +252,6 @@ automatically when you add them to `sfx/`.
 ## Author
 
 Made by **Mr Boozy** with Claude.
-YouTube: [Mr Boozy](https://www.youtube.com/@boozymi) · Community: [skool.com/@mr-boozy-5487](https://www.skool.com/@mr-boozy-5487)
+YouTube: [Mr Boozy](https://www.youtube.com/@boozymi) · The video: [How to Make "What If You Were Born As…" Videos Using Claude](https://youtu.be/hxbPiBWVA1U)
 
 License: [MIT](LICENSE), provided "as is" without warranty. See [legal notes](#legal-notes).
